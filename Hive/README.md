@@ -372,10 +372,16 @@ select  'http://v.xunlei.com'  regexp 'http://v.xunlei.com/?$'   from test.dual;
 select regexp_extract('http://xxx/details/0/40.shtml','http://xxx/details/([0-9]{1,})/([0-9]{1,})\.shtml',1) from test.dual; # 返回40
 
 select regexp_extract('5.2.14.5672',"(^\\d+)\\.(\\d+)\\.(\\d+)",0); 
- select regexp_extract('0796-7894145','(^\\d{3,4})\\-?(\\d{7,8}$)',1); //结果0796
+select regexp_extract('0796-7894145','(^\\d{3,4})\\-?(\\d{7,8}$)',1); //结果0796
 
 # 正则替换
 select regexp_replace('foobar','oo|ba','') from test.dual; # 返回fr
+
+# 正则替换特殊字符--命令行版本
+select regexp_replace('<李>{二}狗(张)|).%-+&【德! 】*[ 江 ]?','_|\\\|>|<|\\{|\\}|%|\\||!|@|#|$|\\s|\\[|\\]|\\.|\\?|\\*|【|】|，|\\(|\\)|：|&|-|\\+|:|。|','');
+
+# 正则替换特殊字符--shell版
+select regexp_replace('<李>{二}狗(张)|).%-+&【德! 】*[ 江 ]?','_|\\\\\\|>|<|\\\\{|\\\\}|%|\\\\||!|@|#|$|\\\\s|\\\\[|\\\\]|\\\\.|\\\\?|\\\\*|【|】|，|\\\\(|\\\\)|：|&|-|\\\\+|:|。|','');
 
 # 正则分割
 select split(fu1,'\\.') from xmp_odl.xmpcloud2 where ds='20170502' and hour=11 limit 10;
