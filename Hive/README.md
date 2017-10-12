@@ -601,6 +601,10 @@ select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 
 #### 其它函数
 
+##### 数学函数
+
+
+
 #### UDF函数
 
 ##### 编解码
@@ -645,13 +649,19 @@ select concat_ws('_',["5","2","4","1234"]);
 
 ##### 分析函数
 
-ntile按层次查询
+###### ntile
 
-percentile返回分位点对应的记录值
+按层次查询
 
-累积函数，计算一定范围内、一定值域内或者一段时间内的累积和以及移动平均值等
+###### percentile
 
-rank()/dense_rank()
+返回分位点对应的记录值
+
+###### 累积函数
+
+计算一定范围内、一定值域内或者一段时间内的累积和以及移动平均值等
+
+###### rank()/dense_rank()
 
 ```mysql
 use xmp_data_mid;
@@ -666,15 +676,17 @@ SELECT A.ds, A.srctbl, A.srcdb,A.datasize
  WHERE RK < 4;
 ```
 
-
+统计每组前N个
 
 #### Streaming操作
 
-hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进程，外部进程从标准输入中读数据，然后将结果数据写入到标准输出，优点如下：
+hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进程，外部进程从标准输入中读数据，然后将结果数据写入到标准输出，
+
+优点：
 
 - 少数据量的复杂计算
 - 快速出结果
-- 几乎之策所有语言（bash/perl/python/java）
+- 几乎支持所有语言（bash/perl/python/java）
 
 缺点：
 
@@ -684,28 +696,33 @@ hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进
 
 结合insert overwrite 使用transform
 
-```
-select 
-	transform(uid,mid,rating,utime) 
-	using 'python weekday.py' as (uid,mid,rating,weekday) 
-from rating;
+```mysql
+add file python_streaming.py;
+select transform(substr(fu1,2,5),fu2,fu5,fu7,fip,finsert_time) 
+using 'python_streaming.py' 
+as (pid,mlint,flstr,sstr,fip,ftime)
+from xmp_odl.xmpplaydur where ds='$date' limit 1000;
 ```
 
-#####  python streaming
+> 可以直接将经过处理后的文件进行处理后导出到本地
+
+#####  reduce
 
 ```mysql
 add file t_stat_url_upload_split_mapper.py;
 from(
-      select iconv(furl,'gbk')  as furl,iconv(fip,'gbk') as fip,iconv(ftime,'gbk') as ftime
-      from kankan_odl.t_stat_url_upload
-      where ds='${date}'
-      cluster by fip
-	)a
-	INSERT OVERWRITE TABLE kankan_bdl.t_stat_url_upload_split PARTITION(ds='${date}')
-	REDUCE a.furl,a.fip,a.ftime
-	USING 't_stat_url_upload_split_mapper.py'
-	AS install,channel,peerid,version, package_name, installtype,fip,ftime ;
+    select iconv(furl,'gbk')  as furl,iconv(fip,'gbk') as fip,iconv(ftime,'gbk') as ftime
+    from kankan_odl.t_stat_url_upload
+    where ds='${date}'
+    cluster by fip
+)a
+insert overwrite table kankan_bdl.t_stat_url_upload_split partition(ds='${date}')
+reduce a.furl,a.fip,a.ftime
+using 't_stat_url_upload_split_mapper.py'
+as install,channel,peerid,version, package_name, installtype,fip,ftime ;
 ```
+
+> 处理后插入到新表中
 
 ### 积累
 
@@ -765,7 +782,11 @@ select parse_url('http://facebook.com/path/p1.php?query=1', 'USERINFO') from dua
 
 ipstr->int
 
+
+
 int->ipstr
+
+> 暂时没有查找到关于ip的函数，需要自定义实现
 
 ### 优化
 
@@ -810,14 +831,14 @@ select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active
 
 ## 参考
 
-[官方参考手册](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML#LanguageManualDML-Delete)
+[官方参考手册（注意官方函数参考）](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML#LanguageManualDML-Delete)
 
 [hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
 
-[HIVE 时间操作函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
+[HIVE 时间函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
 
-[HIVE常用字符串操作函数](https://www.iteblog.com/archives/1639.html)
+[HIVE字符串函数](https://www.iteblog.com/archives/1639.html)
 
-[HIVE常见数学函数](http://blog.csdn.net/zhoufen12345/article/details/53608271)
+[HIVE数学函数](http://blog.csdn.net/zhoufen12345/article/details/53608271)
 
 [HIVE常见内置函数及其使用(推荐)](http://blog.csdn.net/scgaliguodong123_/article/details/46954009)
