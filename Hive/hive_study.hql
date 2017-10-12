@@ -32,7 +32,7 @@ fields terminated by '\u0001'
 stored as inputformat
   'org.apache.hadoop.mapred.SequenceFileInputFormat'
 outputformat
-  'org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat'
+  'org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat';
 
 
 
