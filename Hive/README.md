@@ -578,6 +578,10 @@ split('192.168.0.1','\\.') from test.dual;
 hive -e "....  split('192.168.0.1','\\\\.') ... "  不然得到的值是null
 ```
 
+> 注意：当待分割的字符串是空或者null的时候，使用size(split('cw3ew3','xx'))得到的数组长度却是1，可通过以下方式修正：
+>
+> select if(length('')==0,0,size(split('','_'))) from test.dual;
+
 字符串截取
 
 ```mysql
@@ -603,7 +607,18 @@ select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 
 ##### 数学函数
 
+##### 集合操作函数
 
+| **Return Type** | **Name(Signature)**             | **Description**                          |
+| --------------- | ------------------------------- | ---------------------------------------- |
+| int             | size(Map<K.V>)                  | Returns the number of elements in the map type. |
+| int             | size(Array<T>)                  | Returns the number of elements in the array type. |
+| array<K>        | map_keys(Map<K.V>)              | Returns an unordered array containing the keys of the input map. |
+| array<V>        | map_values(Map<K.V>)            | Returns an unordered array containing the values of the input map. |
+| boolean         | array_contains(Array<T>, value) | Returns TRUE if the array contains value. |
+| array<t>        | sort_array(Array<T>)            | Sorts the input array in ascending order according to the natural ordering of the array elements and returns it (as of version [0.9.0](https://issues.apache.org/jira/browse/HIVE-2279)). |
+| array           | collect_set(col)                | Returns a set of objects with duplicate elements eliminated. |
+| array           | collect_list(col)               | Returns a list of objects with duplicates. (As of Hive [0.13.0](https://issues.apache.org/jira/browse/HIVE-5294).) |
 
 #### UDF函数
 
@@ -626,15 +641,15 @@ str->map
 
 > str_to_map(strings ,delim1,delim2), delin1键值对分隔符，delim2键值分隔符
 
-```
-select str_to_map('k1:v1,k2:v2',',',':'); # {"k1":"v1","k2":"v2"
+```mysql
+select str_to_map('k1:v1,k2:v2',',',':'); # {"k1":"v1","k2":"v2"}
 ```
 
 str->array
 
 > split(strings,pattern)
 
-```
+```mysql
 select split('5.2.4.1234','\\.');  # ["5","2","4","1234"]
 ```
 
@@ -642,9 +657,20 @@ array->str
 
 > concat_ws(delim,ARRAY arr)
 
-```
+```mysql
 select concat_ws('_',fu5) from xmp_odl.xmpplaydur where ds='20170612' and hour=10 limit 10;
 select concat_ws('_',["5","2","4","1234"]);
+```
+
+以上均是自带的，以下是扩展：
+
+array->map
+
+```python
+# 比如k1,v1,k2,v2,其顺序依次是key,value,key,value,可以参考python-streaming实现
+a = [1, 2, 3, 4, 5, 6]
+b=list(zip( a[::2], a[1::2] )) # [(1, 2), (3, 4), (5, 6)]
+dict(b) #{1: 2, 3: 4, 5: 6}
 ```
 
 ##### 分析函数
