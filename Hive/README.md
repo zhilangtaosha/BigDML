@@ -10,7 +10,7 @@ string
 
 ```mysql
 # 字符串分割(返回数组)
-split('xxx_we2_23','_')  
+split('xxx_we2_23','_');  
 ```
 
 array
@@ -18,9 +18,26 @@ array
 ```mysql
 # 求array的长度
 size(arrya)
-# # 如何将计算的数据直接在本行内使用呢
-select split("wew_w23_ew0","_") inner ji,select size(split("wew_w23_ew0",'_')) as cnt
+# # 如何将计算的数据直接在本行内使用呢(使用子查询的方式达到了结果)
+select split("wew_w23_ew0","_")[a.cnt-1] from (select size(split("wew_w23_ew0",'_')) as cnt)a;
 ```
+
+> 问题是无法对数据采用-1，-2这样的倒序查(已解决)，例子：
+>
+> ```mysql
+> select a.sstr,split(a.sstr,"_")[a.cnt-1] from (select sstr,size(split(sstr,'_')) as cnt from xmp_data_mid.streaming_test limit 10)a;
+>
+> select a.gcid,split(a.filename,'\\\\')[a.cnt-1] from (select gcid,filename,size(split(filename,'\\\\')) as cnt from xmp_mid.gcid_filename_filter where gcid!='' limit 100)a;
+>
+> ```
+>
+> 注意在shell中要换成8个（在hql脚本中和在hive的命令行中保持一样，都是4个），如下：
+
+> ```shell
+> hql="select a.gcid,split(a.filename,'\\\\\\\')[a.cnt-1] from (select gcid,filename,size(split(filename,'\\\\\\\')) as cnt from xmp_mid.gcid_filename_filter where gcid!='' limit 100)a;"
+> echo "$hql"
+> ${HIVE} -e "$hql"
+> ```
 
 例子：
 
@@ -54,9 +71,17 @@ struct
 
 ```
 
-整体测试表：
+例子：
 
 ```
+
+```
+
+
+
+**整体测试表：**
+
+```mysql
 create table group_test(ds string,srctbl string,srcdb string, hour string,datasize int)
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY '\t'
@@ -412,7 +437,9 @@ http://v.xunlei.com/movie/
 http://v.xunlei.com/movie_tuijian/movie_tuijian.shtml
 http://list.v.xunlei.com/v,type/5,movie/
 
-
+# 文件名分割
+select split("A:\xunlei\白石\0502star777\宣傳文件\魔王之家~魔王在線防屏蔽發布器.rar",'\\\\') from test.dual;
+select split(r"A:\xun\白石\大哥\wzhang\vvv.rar",'\\\') from test.dual;
 
 ```
 
