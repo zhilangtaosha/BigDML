@@ -19,11 +19,13 @@ streaming的实现可以用多种语言，此处挑选python,c,shell,perl来实�
 
 #### python实现
 
+调用的python文件需要使用到第三方文件该如何处理
+
 #### shell实现
 
 #### perl实现
 
-#### C/C++实现
+#### c/c++实现
 
 
 

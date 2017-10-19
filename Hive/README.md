@@ -647,7 +647,9 @@ select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 | array           | collect_set(col)                | Returns a set of objects with duplicate elements eliminated. |
 | array           | collect_list(col)               | Returns a list of objects with duplicates. (As of Hive [0.13.0](https://issues.apache.org/jira/browse/HIVE-5294).) |
 
-#### UDF函数
+#### UDF
+
+udf和streaming的区别在于udf必须是在hadoop平台上的文件，而streaming要求的则是本地文件
 
 ##### 编解码
 
@@ -733,7 +735,11 @@ SELECT A.ds, A.srctbl, A.srcdb,A.datasize
 
 #### Streaming操作
 
-hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进程，外部进程从标准输入中读数据，然后将结果数据写入到标准输出，
+hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进程，外部进程从标准输入中读数据，然后将结果数据写入到标准输出。
+
+注意：
+
+> streaming过程使用到的文件都是本地文件，不需要上传到hadoop集群上
 
 优点：
 
