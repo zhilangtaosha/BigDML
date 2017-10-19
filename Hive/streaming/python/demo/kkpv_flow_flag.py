@@ -26,6 +26,7 @@ print>>sys.stderr, sys.path
 
 ipbase = []
 ipsect = []
+
 def load_ipbase(ipbase_path):
 	global ipbase
 	for line in open(ipbase_path):
@@ -34,6 +35,7 @@ def load_ipbase(ipbase_path):
 		ipsect.append(int(start))
 
 str_conf = {}
+
 def load_url_flag(filename):
 	global str_conf
 
@@ -43,6 +45,7 @@ def load_url_flag(filename):
 		str_conf.setdefault(column,{}).setdefault(column_flag,"%s\t%s" % (column_patch,"^"+reg+"$"))
 in_channels = {}
 out_channels = {}
+
 def load_channel(filename):
 	global in_channels
 	global out_channels
@@ -52,7 +55,7 @@ def load_channel(filename):
 			in_channels[channelid] = [contacterid,companyid,refreg,contractNo]
 		else:
 			out_channels[channelid] = [contacterid,companyid,refreg,contractNo]
-#		ichannels[channelid] = [channel_flag,contacterid,companyid]		
+#		ichannels[channelid] = [channel_flag,contacterid,companyid]
 
 def parse_url_flag_once(url,domain,flag_type):
 	if flag_type not in str_conf:
@@ -68,28 +71,33 @@ def parse_url_flag_once(url,domain,flag_type):
 			if re.match(reg,domain) is not None:
 				return flag;
 	return "0"
+
 def parse_url_remove(url,url_domain,ref,ref_domain):
 	ret = parse_url_flag_once(url,url_domain,"remove")
 	if ret == "0" :
 		return False
 	else:
 		return True
+
 def parse_url_flag(url,domain,flags):
 
 	ret = []
 	for flag_type in flags:
 		ret.append(parse_url_flag_once(url,domain,flag_type))
 	return ret
+
 def parse_url_id_once(url,reg):
 	regex_ret = re.findall(reg,url)
 	if len(regex_ret) != 0:
 		return regex_ret[0]
 	return "0"
+
 def display_for_map(a):
 	if a:
 		return ','.join([x[0]+":"+str(x[1]) for x in a.items()])
 	else:
 		return '0:0'
+
 def parse_url_id(url):
 	cur_flag_dict = str_conf["ids"]
 #	ret = []
@@ -99,13 +107,15 @@ def parse_url_id(url):
 	#	print column_patch,reg
 #		ret.append(parse_url_id_once(url,reg))
 		ret.setdefault(id,parse_url_id_once(url,reg))
-	ret_str = display_for_map(ret) 
+	ret_str = display_for_map(ret)
 	return [ret_str]
+
 def checkvalue(value):
 	if(value is not None):
 		return value
 	else:
 		return '0'
+
 def user_agent(user_agent_str):
 	from ua_parser import user_agent_parser
 	ua_ret = user_agent_parser.Parse(user_agent_str);
@@ -120,7 +130,7 @@ def user_agent(user_agent_str):
 	os_version = "%s.%s.%s" % (os_major,os_minor,os_patch)
 	agent_major = checkvalue(ua_ret['user_agent']['major'])
 	agent_minor = checkvalue(ua_ret['user_agent']['minor'])
-	agent_patch = checkvalue(ua_ret['user_agent']['patch'])		
+	agent_patch = checkvalue(ua_ret['user_agent']['patch'])
 #	agent_major = ua_ret['user_agent']['major'] if ua_ret['user_agent']['major'] is not None else '0'
 #	agent_minor = ua_ret['user_agent']['minor'] if ua_ret['user_agent']['minor'] is not None else '0'
 #	agent_patch = ua_ret['user_agent']['patch'] if ua_ret['user_agent']['patch'] is not None else '0'
@@ -143,9 +153,10 @@ def parse_url(url):
 #		path = ""
 
 #	path = pr.path if pr.path != "/" else ""
-	
+
 #	return (pr.netloc,pr.netloc+path,query_dict_str)
 	return ('','','')
+
 def parse_url(url_net,url_path,url_querys):
 	query_arr = [item.split('=') for item in url_querys.split("&")]
 	query_dict = {}
@@ -161,6 +172,7 @@ def parse_url(url_net,url_path,url_querys):
 	else:
 		path = ""
 	return (url_net,url_net+path,query_dict_str,id)
+
 def parse_ip(ipstr):
 	from bisect import bisect
 	ip = 0
@@ -174,14 +186,15 @@ def parse_ip(ipstr):
 		if (int(ip)<=item[1]):
 			return [item[2],item[3],item[4]]
 	return ["0","0","0"]
+
 def parse_channel(url_id,ref):
 	entrance = 0
 	[channel_type,contactid,companyid,search_engine,contractNo] = ['0','0','0','0','0']
 	if(ref==""):
 		entrance = 1
 	elif(ref!='' and (re.match(".*kankan.com.*",ref) == None)):
-		entrance = 1 
-	
+		entrance = 1
+
 	cur_flag_dict = str_conf["add_id"]
 	for id in cur_flag_dict:
 		column_patch,reg = cur_flag_dict[id].split("\t")
@@ -211,14 +224,14 @@ def parse_channel(url_id,ref):
 			url_id = url_id
 		else:
 			url_id = "0"
-		
+
 	elif(ref.replace(" ","") == ""):
 		channel_type = "direct"
 	elif(search_engine!="0"):
 		channel_type = "seo"
 	elif(entrance == 1):
 		channel_type = "out_other"
-	
+
 	return  [url_id,channel_type,contactid,companyid,search_engine,contractNo]
 
 
@@ -228,6 +241,7 @@ load_ipbase("prov_ipbase.comb")#ipbase
 load_url_flag("url_flag_v2.txt.2")#str_conf
 load_channel("t_channel")
 regex=re.compile('.*search.xmp.kankan.com*')
+
 for line in sys.stdin:
 	try:
 		(hour,url,cookieid,peerid,useragent,ref,session_id,ip,url_net,url_path,url_querys,ref_net,ref_path,ref_querys,uid,is_vip,finsert_time) = line.rstrip().split("\t")
@@ -236,18 +250,18 @@ for line in sys.stdin:
 		ref = urllib.unquote_plus(ref)
 		if not (global_fun.is_cookieid_eff(cookieid)):
 			continue
-		 
+
 		(url_domain,pure_url,url_query,url_id) = parse_url(url_net,url_path,url_querys)
 		(ref_domain,pure_ref,ref_query,ref_id) = parse_url(ref_net,ref_path,ref_querys)
-		
+
 		if parse_url_remove(pure_url,url_domain,pure_ref,ref_domain) == True:
 			continue
 		[url_id,channel_type,contacterid,companyid,search_engine,contractNo] = parse_channel(url_id,ref)
-		channel_feature = [url_id,channel_type,contacterid,companyid,search_engine]		
-		
+		channel_feature = [url_id,channel_type,contacterid,companyid,search_engine]
+
 		meta_feature = [hour,cookieid,peerid,session_id,ip,finsert_time]
 		url_ref_feature = [url_domain,pure_url,url_query,ref_domain,pure_ref,ref_query]
-		
+
 		[device,os,os_version,ua,ua_version] = user_agent(useragent)
 		ua_feature = [device,os,os_version,ua,ua_version]
 

@@ -239,6 +239,7 @@ OUTPUTFORMAT "org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat";
 
 # 修改字段分割方式
 alter table xmp_subproduct_install set SERDEPROPERTIES('field.delim' = '\u0001');
+alter table xmp_subproduct_install set SERDEPROPERTIES('serialization.format' = '\u0001');
 ```
 
 ###### 删除表
@@ -260,22 +261,19 @@ ${HIVE} -e "{chql}"
 
 ##### 导出数据
 
+- 命令行输出重定向
+
 ```shell
-esql="use kankan_odl;select '{date}',fu3,fu2,count(*) from xmpcloud2 where ds='{date}' and length(fu4)=16 group by fu3,fu2;"
-${HIVE} -e "{esql}" > datapath/xmp_cloud_{date}
+hql="use kankan_odl;select '${date}',fu3,fu2,count(*) from xmpcloud2 where ds='{date}' and length(fu4)=16 group by fu3,fu2;"
+${HIVE} -e "${hql}" > xmp_cloud_20161201
 ```
 
 - 导出数据到本地文件(并指定字段分割方式)
 
 ```sql
-insert overwrite local directory '/tmp/xx' row format delimited fields terminated by '\t' select * from test;
+insert overwrite local directory '/data/access_log/access_log.45491' row format delimited fields terminated by '\t' collection items terminated by ',' select * from xx
 ```
 
-- hive写本地数据
-
-```sql
-insert overwrite local directory '/data/access_log/access_log.45491' row format delimited fields terminated by ' ' collection items terminated by ' ' select *
-```
 ### 查询
 
 #### 基本查询

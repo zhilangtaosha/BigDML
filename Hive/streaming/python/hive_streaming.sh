@@ -27,7 +27,7 @@ function write_table()
 	${HIVE} -e "$hql"
 }
 
-# 直接写入本地文件
+# 直接写入本地文件（注意此处的limit 1000是过滤后的1000条，而不是先取1000条再过滤）
 function write_local()
 {
     local hql="
@@ -49,8 +49,3 @@ write_local
 
 
 exit 0
-
-
-
-
-

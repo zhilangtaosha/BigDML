@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#-*-coding:utf-8-*-
 
 import sys,re,os,re
 for line in sys.stdin:
@@ -8,9 +9,10 @@ for line in sys.stdin:
         max_lint=str(max(eval(mlint)))
         first_lstr=eval(flstr)[0]
         sstr=sstr.replace(',','_')
+        if first_lstr=='6065': # 可以使用过滤条件
+            continue
         print '\t'.join([pid,max_lint,first_lstr,sstr,fip,ftime])
     except Exception,e:
-    :
         t,value,traceback = sys.exc_info()
         continue
 
