@@ -879,9 +879,17 @@ left semi join是可以高效实现in/exists子查询的语义，
 例子：
 
 ```mysql
-select a.guid,a.eventid from xlj_test_event a left semi join xlj_test_user b on a.guid=b.guid and a.ds=20150527 and b.ds=20150527 and a.eventid=3604 limit 40
+select a.guid,a.eventid from xlj_test_event a left semi join xlj_test_user b on a.guid=b.guid and a.ds=20150527 and b.ds=20150527 and a.eventid=3604 limit 40;
 
 select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active b  on (a.pid=b.pid) where a.minds=20160101 and b.ds=20160109 limit 10;
+```
+
+#### 设置参数
+
+设置reduce的个数
+
+```hive
+set mapred.reduce.tasks=18;
 ```
 
 
