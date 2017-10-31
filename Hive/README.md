@@ -151,6 +151,15 @@ hiveconf参数设置
 
 #### 创建表
 
+创建库的时候最好指定下库的路径，建立内部表的时候不建议指定表的location的位置，如下格式：
+
+```mysql
+create database if not exists apple1_bdl comment 'apple1 without xiaomi bdl data'
+location '/user/complat/warehouse/apple1_bdl.db/';
+```
+
+> 这是创建库而不指定库的路径的时候库的目录是/user/xxx/warehouse/,此处删除库的时候会直接将整个目录删除。
+
 ##### 文本格式存储
 ```sql
 use kankan_odl;drop table if exists hive_table_templete;
@@ -276,9 +285,9 @@ insert overwrite local directory '/data/access_log/access_log.45491' row format 
 
 ### 查询
 
-#### 基本查询
+#### 基本
 
-> 不嵌套，只使用最基本的，无关联
+> 不嵌套，只使用最基本的，无连接，主要是注意积累函数的使用
 
 ##### case when 
 
@@ -335,14 +344,36 @@ The COALESCE function returns the fist not NULL value from the list of values. I
 select COALESCE(NULL,1,"ww") from test.dual;
 ```
 
-> 如何返回数组中的第一个非NULL元素，配合collect_list使用？
-
-
+> 如何返回数组中的第一个非NULL元素，配合collect_list使用？取聚合后第一个非空元素
+>
+> ```mysql
+> (case when sort_array(collect_set(version))[0]='' and size(collect_set(version))=1 then ''
+>       when sort_array(collect_set(version))[0]!='' then sort_array(collect_set(version))[0]
+>       when sort_array(collect_set(version))[0]='' and size(collect_set(version))>1 then 			   collect_set(version)[1] end
+> ) as version
+> ```
 
 #### 子查询
 
+子查询要和连接一起学习
+
 ```mysql
-select a.mt,count(*) as cnt from (select from_unixtime(finsert_time,'yyyyMMdd HH:mm:ss') as mt from xmp_odl.xmp_pv where ds='20161206') a group by a.mt order by cnt desc;
+SELECT
+	a.mt,
+	count(*) AS cnt
+FROM
+	(
+		SELECT
+			from_unixtime(finsert_time,'yyyyMMdd HH:mm:ss') AS mt
+		FROM
+			xmp_odl.xmp_pv
+		WHERE
+			ds = '20161206'
+	) a
+GROUP BY
+	a.mt
+ORDER BY
+	cnt DESC;
 ```
 
 #### 正则
@@ -438,14 +469,17 @@ http://list.v.xunlei.com/v,type/5,movie/
 # 文件名分割
 select split("A:\xunlei\白石\0502star777\宣傳文件\魔王之家~魔王在線防屏蔽發布器.rar",'\\\\') from test.dual;
 select split(r"A:\xun\白石\大哥\wzhang\vvv.rar",'\\\') from test.dual;
-
 ```
 
 ####  连接
 
+连接是在查询中最广泛使用的，但要注意数据倾斜问题
+
 ##### left outer join
 
-inner join(等值连接)：只返回两个表中联结字段相等的行；
+left join(左连接)：返回两个表中连结字段相等的行和左表中的行；
+
+>  左表(A)的记录将会全部表示出来,而右表(B)只会显示符合搜索条件的记录(例子中为: A.aID = B.bID).B表记录不足的地方均为NULL.
 
 ```mysql
 insert overwrite table download_union.register_web_all partition(dt='$dt',stat_source='tel') 
@@ -472,6 +506,8 @@ from (
 
 right join(右联接)：返回包括右表中的所有记录和左表中联结字段相等的记录。
 
+> right outer join的结果刚好相反,这次是以右表(B)为基础的,A表不足的地方用NULL填充.
+
 ```
 
 ```
@@ -486,9 +522,9 @@ right join(右联接)：返回包括右表中的所有记录和左表中联结�
 
 ##### inner join
 
-inner join(等值连接)：只返回两个表中联接字段相等的行；
+inner join(等值连接)：只返回两个表中连接字段相等的行；
 
-```
+```mysql
 SELECT
 	persons.lastname,
 	persons.firstname,
@@ -502,11 +538,30 @@ ORDER BY
 	persons.lastname;
 ```
 
+例子：求交集
+
+```mysql
+select count(distinct a.pid)
+from
+(
+  select pid 
+  from xmp_bdl.xmp_dau
+  where ds>='20170701' and ds<='20170731' and version<=5619
+)a 
+join
+(
+  select peerid
+  from thunder9_bdl.bl_xl9_user_accum
+  where ds='20170731' and last_active_date>='20170701' and last_active_date<='20170731'
+)b
+on a.pid=b.peerid;
+```
+
 ##### map join
 
-连接小表的时候，在内存中操作，省去reduce过程
+连接小表的时候，在内存中操作，省去reduce过程,和common join存在着差别
 
-```
+```mysql
 设置参数：
 set hive.auto.convert.join=true;
 set hive.mapjoin.smalltable.filesize=250000
@@ -833,6 +888,13 @@ select parse_url('http://facebook.com/path/p1.php?query=1', 'AUTHORITY') from du
 select parse_url('http://facebook.com/path/p1.php?query=1', 'USERINFO') from dual;
 # 返回结果：空
 ```
+例子：
+
+```
+# 纯路径
+url_pure="concat(parse_url(xl_urldecode(xl_urldecode(url)),'HOST'),parse_url(xl_urldecode(xl_urldecode(url)),'PATH'))"
+```
+
 #### ip处理
 
 通过ip处理，获取位置等信息
@@ -845,9 +907,36 @@ int->ipstr
 
 > 暂时没有查找到关于ip的函数，需要自定义实现
 
+#### 文件名处理
+
+文件名及后缀解析
+
+```mysql
+# 方法1
+filename_url="regexp_extract(${url_pure},'[^/]*$',0)"
+filesuffix="substr(regexp_extract(${filename_url},'\\\.[a-zA-Z0-9]+$',0),2)"
+filename_pure="case when length(${filesuffix})>0 then substr(xl_urlencode(${filename_url}),1,length(xl_urlencode(${filename_url}))-length(${filesuffix})-1) when length(${filesuffix})=0 then xl_urlencode(${filename_url}) end"
+
+# 方法2
+filename_2="regexp_extract(xl_urldecode(xl_urldecode(filename)),'[^/]*$',0)"
+filename_ffix="substr(regexp_extract(${filename_2},'\\\.[a-zA-Z0-9]+$',0),2)"
+filename_p="case when length(${filename_ffix})>0 then substr(xl_urlencode(${filename_2}),1,length(xl_urlencode(${filename_2}))-length(${filename_ffix})-1) when length(${filename_ffix})=0 then xl_urlencode(${filename_2}) end"
+
+# 方法3：使用子查询的方式
+local hql="$MUDF;insert overwrite table xmp_mid.gcid_purefilename_filter partition(ds='$date') 
+                select distinct x.gcid,split(x.filename,'\\\\\\\\')[x.cnt-1] as fname from(
+                select gcid,filename,size(split(uridecode(filename),'\\\\\\\')) as cnt from 					download_bdl.bl_downloadlib_download_fact   where ds='$date' and eventid in 					(4635,4637,4638) and service_name='pc.thunder9' and gcid!='')x;"
+```
+
+#### 关键词过滤
+
+> 关键词过滤的核心是如何批量处理关键词的问题
+
 ### 优化
 
-#### 多表join优化代码结构
+#### 多表join
+
+优化代码结构
 
 ```
 select .. from join tables (a,b,c) with keys (a.key, b.key, c.key) where ....   
@@ -892,6 +981,8 @@ select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active
 set mapred.reduce.tasks=18;
 ```
 
+#### 数据倾斜
+
 
 
 ## 参考
@@ -907,3 +998,7 @@ set mapred.reduce.tasks=18;
 [HIVE数学函数](http://blog.csdn.net/zhoufen12345/article/details/53608271)
 
 [HIVE常见内置函数及其使用(推荐)](http://blog.csdn.net/scgaliguodong123_/article/details/46954009)
+
+[连接参考](http://www.cnblogs.com/pcjim/articles/799302.html)
+
+[Hive join数据倾斜解决方案](http://www.cnblogs.com/ggjucheng/archive/2013/01/03/2842821.html)
