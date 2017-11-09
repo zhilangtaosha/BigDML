@@ -932,6 +932,25 @@ local hql="$MUDF;insert overwrite table xmp_mid.gcid_purefilename_filter partiti
 
 > 关键词过滤的核心是如何批量处理关键词的问题
 
+#### 数据迁移
+
+数据迁移指的是在不同的hive数据仓库或者不同的hive集群上进行数据的迁移
+
+##### 结构迁移
+
+```
+create table xxx like xxx;
+```
+
+##### 结构和数据迁移
+
+```mysql
+create table xxx as select * from xxx;
+
+```
+
+> 不确定分区是否也一起迁移了，或者迁移的数据是否也按分区
+
 ### 优化
 
 #### 多表join
@@ -983,13 +1002,17 @@ set mapred.reduce.tasks=18;
 
 #### 数据倾斜
 
-
+//待完善
 
 ## 参考
+
+- 基础
 
 [官方参考手册（注意官方函数参考）](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML#LanguageManualDML-Delete)
 
 [hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
+
+- 函数
 
 [HIVE 时间函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
 
@@ -999,6 +1022,14 @@ set mapred.reduce.tasks=18;
 
 [HIVE常见内置函数及其使用(推荐)](http://blog.csdn.net/scgaliguodong123_/article/details/46954009)
 
+- 查询
+
 [连接参考](http://www.cnblogs.com/pcjim/articles/799302.html)
+
+- 积累
+
+[HIVE数据迁移](http://blog.csdn.net/u9999/article/details/34119441)
+
+- 优化
 
 [Hive join数据倾斜解决方案](http://www.cnblogs.com/ggjucheng/archive/2013/01/03/2842821.html)
