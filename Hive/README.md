@@ -6,14 +6,22 @@
 
 #### 数据类型
 
-string
+基本数据类型：tinyint, smallint, int,bigint, boolean, float, double, string
+
+复杂数据类型：struct，map，array
+
+##### 基本数据类型
+
+**string**
 
 ```mysql
 # 字符串分割(返回数组)
 split('xxx_we2_23','_');  
 ```
 
-array
+##### 复杂数据类型
+
+**array**
 
 ```mysql
 # 求array的长度
@@ -47,15 +55,35 @@ create table array_test(a array<int>, b array<string>) ROW FORMAT DELIMITED FIEL
 load data local inpath "array.txt"  overwrite into table array_test;
 ```
 
-map
+**map**
 
-```
+```mysql
+select map("key1","val1") from test.dual; 
 
+# 测试1：
+insert into table xmp_data_mid.map_test values( 'hahh',map("key1","val1"));
+# 则会报错：
+# Unable to create temp file for insert values Expression of type TOK_FUNCTION not supported in insert/values
+# 更改成：
+insert into table xmp_data_mid.map_test select 'hahh',map("key1","val1") # from test.dual;
+
+
+
+# 测试2：
+insert into table xmp_data_mid.map_test select 'hahh','{"key2":"val2"}';
+# 则会报错：
+# FAILED: SemanticException [Error 10044]: Line 1:18 Cannot insert into target table because column number/types are different 'map_test': Cannot convert column 1 from string to map<string,string>.
+# 更改成：
+insert into table xmp_data_mid.map_test select 'hahh',str_to_map('{"key2":"val2"}');
+# 插入结果
+hahh    {"{\"key2\"":"\"val2\"}"}
+
+insert into table xmp_data_mid.map_test select 'hahh',str_to_map('key3:val3,key4:val4');
 ```
 
 例子：
 
-```
+```mysql
 create table map_test(a string , b map<string, string>)
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY '\t'
@@ -65,7 +93,15 @@ STORED AS TEXTFILE;
 load data local inpath "map.txt"  overwrite into table map_test;
 ```
 
-struct
+> 注意:
+>
+> map的字典不能在order by中使用，需要使用别名
+>
+> ```mysql
+> select mdict['xxx'] as mdx,mdict['vvv'] from db1.table1 order by  mdx;
+> ```
+
+**struct**
 
 ```mysql
 
@@ -76,8 +112,6 @@ struct
 ```
 
 ```
-
-
 
 **整体测试表：**
 
@@ -90,8 +124,6 @@ MAP KEYS TERMINATED BY ':'
 STORED AS TEXTFILE;
 load data local inpath "group.txt"  overwrite into table group_test;
 ```
-
-
 
 #### 属性设置
 
@@ -129,8 +161,18 @@ source FILE <filepath>	在CLI里执行一个hive脚本文件
 
 hiveconf参数设置
 
-```
-#HIVE_2="/usr/local/complat/complat_clients/cli_bin/hive  -hiveconf mapred.job.name=kkstat_hive -hiveconf hive.exec.compress.output=true -hiveconf hive.groupby.skewindata=false -hiveconf hive.exec.compress.intermediate=true -hiveconf io.seqfile.compression.type=BLOCK -hiveconf mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec -hiveconf hive.map.aggr=true -hiveconf hive.stats.autogather=false -hiveconf hive.exec.scratchdir=/user/kankan/tmp  -hiveconf mapred.job.queue.name=kankan -S "
+```shell
+HIVE_2="/usr/local/complat/complat_clients/cli_bin/hive  
+-hiveconf mapred.job.name=kkstat_hive 
+-hiveconf hive.exec.compress.output=true 
+-hiveconf hive.groupby.skewindata=false 
+-hiveconf hive.exec.compress.intermediate=true 
+-hiveconf io.seqfile.compression.type=BLOCK 
+-hiveconf mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec 
+-hiveconf hive.map.aggr=true 
+-hiveconf hive.stats.autogather=false 
+-hiveconf hive.exec.scratchdir=/user/kankan/tmp  
+-hiveconf mapred.job.queue.name=kankan -S "
 ```
 
 | 功能                                      | 语法                                       |
@@ -213,6 +255,7 @@ outputformat
 
 ```sql
 use xmp_odl;alter table $tbl partition(ds='20160808',hour='00') set location "/user/kankan/warehouse/..."
+
 use xmp_odl;alter table $tbl partition(ds='20160808',hour='00') rename to partition(ds='20160808',hour='01')
 ```
 
@@ -220,11 +263,17 @@ use xmp_odl;alter table $tbl partition(ds='20160808',hour='00') rename to partit
 
 ###### 添加列
 
-`use xmp_odl;alter table $tbl add columns(col_name string);`
+```mysql
+use xmp_odl;
+alter table $tbl add columns(col_name string);
+```
 
 ###### 修改列
 
-`use xmp_odl;alter table $tbl change col_name newcol_name string [after x][first];`
+```mysql
+use xmp_odl;
+alter table $tbl change col_name newcol_name string [after x][first];
+```
 
 ###### 删除列
 
@@ -315,17 +364,18 @@ end
 
 ```mysql
 select fu5[2],
-(case
-when(fu2[1]=0) then '0'
-when(fu2[1]>0 and fu2[1]<=10) then '1'
-when(fu2[1]>10 and fu2[1]<=20) then '2'
-when(fu2[1]>20 and fu2[1]<=60) then '6'
-when(fu2[1]>60 and fu2[1]<=300) then '300'
-when(fu2[1]>300 and fu2[1]<=7200) then '7200'
-else '-1'
-end) as section,
-fu6
-from xmpplaydur where size(fu5)!=0 and fu5[0]>=1023
+      (case
+          when(fu2[1]=0) then '0'
+          when(fu2[1]>0 and fu2[1]<=10) then '1'
+          when(fu2[1]>10 and fu2[1]<=20) then '2'
+          when(fu2[1]>20 and fu2[1]<=60) then '6'
+          when(fu2[1]>60 and fu2[1]<=300) then '300'
+          when(fu2[1]>300 and fu2[1]<=7200) then '7200'
+          else '-1'
+      end) as section,
+      fu6
+from xmpplaydur 
+where size(fu5)!=0 and fu5[0]>=1023；
 ```
 
 例子2：
@@ -427,6 +477,8 @@ select regexp_extract('http://xxx/details/0/40.shtml','http://xxx/details/([0-9]
 
 select regexp_extract('5.2.14.5672',"(^\\d+)\\.(\\d+)\\.(\\d+)",0); 
 select regexp_extract('0796-7894145','(^\\d{3,4})\\-?(\\d{7,8}$)',1); //结果0796
+select regexp_extract('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_push_noti_nfxf','(.*)\\?referfrom=(.*)',1); //结果https://pay.xunlei.com/bjvip.html
+
 
 # 正则替换
 select regexp_replace('foobar','oo|ba','') from test.dual; # 返回fr
@@ -687,7 +739,7 @@ select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 
 ##### 数学函数
 
-##### 集合操作函数
+##### 集合操作
 
 | **Return Type** | **Name(Signature)**             | **Description**                          |
 | --------------- | ------------------------------- | ---------------------------------------- |
@@ -699,6 +751,71 @@ select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 | array<t>        | sort_array(Array<T>)            | Sorts the input array in ascending order according to the natural ordering of the array elements and returns it (as of version [0.9.0](https://issues.apache.org/jira/browse/HIVE-2279)). |
 | array           | collect_set(col)                | Returns a set of objects with duplicate elements eliminated. |
 | array           | collect_list(col)               | Returns a list of objects with duplicates. (As of Hive [0.13.0](https://issues.apache.org/jira/browse/HIVE-5294).) |
+
+##### 字典操作
+
+###### map类型
+
+取值
+
+```mysql
+select b['key1'] from xmp_data_mid.map_test;
+select if(b['key1'] is null,'kong',b['key1']) from xmp_data_mid.map_test;
+select nvl(b['key1'],'kong') from xmp_data_mid.map_test;
+```
+
+转化
+
+```mysql
+# 将字符串转化为map类型
+select str_to_map('1=2&3=4','&','='); 
+# --结果：{"1":"2","3":"4"}
+```
+
+问题
+
+>  能不能将一个map中的数据导入到另一个map中？
+
+```mysql
+# map类型可以直接插入到另一个map类型中
+insert into xmp_data_mid.map_test select 'vvvv',b from xmp_data_mid.map_test;
+# 如果map里嵌了一个map，则里面的map的是字符串，不能直接被查询
+```
+
+
+
+###### json字符串
+
+取值
+
+```mysql
+# 从json字符串中取值
+get_json_object(string json_string, string path)
+# select a.timestamp, get_json_object(a.appevents, ‘$.eventid’), get_json_object(a.appenvets, ‘$.eventname’) from log a;
+```
+
+> 注意json字符串不能连续的取值：
+>
+> ```mysql
+> get_json_object(get_json_object(content,'$.ed'),'$.clickid') as clickid,
+> ```
+
+
+
+```json
+{"redbao":'android','isnew':'new'}
+{"redbao":'android','isnew':'new'}
+{"redbao":'ios','isnew':'false'}
+{"redbao":'ios','isnew':'new'}
+
+# 合并结果
+{
+  "red":取redbao的结果，
+  "new":取isnew的结果
+}
+```
+
+
 
 #### UDF
 
@@ -890,9 +1007,13 @@ select parse_url('http://facebook.com/path/p1.php?query=1', 'USERINFO') from dua
 ```
 例子：
 
-```
+```shell
 # 纯路径
 url_pure="concat(parse_url(xl_urldecode(xl_urldecode(url)),'HOST'),parse_url(xl_urldecode(xl_urldecode(url)),'PATH'))"
+
+# 直接解析
+select concat(parse_url('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_push_noti_nfxf','HOST'),parse_url('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_push_noti_nfxf', 'PATH'));
+//结果：pay.xunlei.com/bjvip.html
 ```
 
 #### ip处理
@@ -901,11 +1022,17 @@ url_pure="concat(parse_url(xl_urldecode(xl_urldecode(url)),'HOST'),parse_url(xl_
 
 ipstr->int
 
+```
 
+```
 
 int->ipstr
 
 > 暂时没有查找到关于ip的函数，需要自定义实现
+
+```
+
+```
 
 #### 文件名处理
 
@@ -1004,32 +1131,64 @@ set mapred.reduce.tasks=18;
 
 //待完善
 
+### 问题
+
+#### 查询
+
+问题描述：
+
+​	Both left and right aliases encountered in JOIN 's1'
+
+解决方法
+
+```mysql
+# 两个表join的时候，不支持两个表的字段 非相等 操作, 例如t2.dtlogtime>=t1.s1 
+select t2.iuin 
+from test.xxx t1 
+join test.vvv t2 
+	on ( t1.i0 = t2.iuin 
+        and t2.par_datetime in ('201405') 
+        and t2.dtlogtime>=t1.s1 and t2.Ireason not in (1003)
+       );
+
+# 可以将非相等条件提取到where中
+select t2.iuin 
+from test.xxx t1 
+join test.vvv t2 
+on ( t1.i0 = t2.iuin ) 
+where  t2.par_datetime in ('201405') 
+   and t2.dtlogtime>=t1.s1 
+   and t2.Ireason not in (1003);
+```
+
 ## 参考
 
 - 基础
 
-[官方参考手册（注意官方函数参考）](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML#LanguageManualDML-Delete)
+  [官方参考手册（注意官方函数参考）](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML#LanguageManualDML-Delete)
 
-[hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
+​	[hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
 
 - 函数
 
-[HIVE 时间函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
+  [HIVE 时间函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
 
-[HIVE字符串函数](https://www.iteblog.com/archives/1639.html)
+  [HIVE字符串函数](https://www.iteblog.com/archives/1639.html)
 
-[HIVE数学函数](http://blog.csdn.net/zhoufen12345/article/details/53608271)
+  [HIVE数学函数](http://blog.csdn.net/zhoufen12345/article/details/53608271)
 
-[HIVE常见内置函数及其使用(推荐)](http://blog.csdn.net/scgaliguodong123_/article/details/46954009)
+  [HIVE常见内置函数及其使用(推荐)](http://blog.csdn.net/scgaliguodong123_/article/details/46954009)
 
 - 查询
 
-[连接参考](http://www.cnblogs.com/pcjim/articles/799302.html)
+  [连接参考](http://www.cnblogs.com/pcjim/articles/799302.html)
 
 - 积累
 
-[HIVE数据迁移](http://blog.csdn.net/u9999/article/details/34119441)
+  [HIVE数据迁移](http://blog.csdn.net/u9999/article/details/34119441)
+
+  [Hive SQL: Both left and right aliases encountered in JOIN](https://stackoverflow.com/questions/36015035/hiv	e-sql-both-left-and-right-aliases-encountered-in-join)
 
 - 优化
 
-[Hive join数据倾斜解决方案](http://www.cnblogs.com/ggjucheng/archive/2013/01/03/2842821.html)
+  [Hive join数据倾斜解决方案](http://www.cnblogs.com/ggjucheng/archive/2013/01/03/2842821.html)
