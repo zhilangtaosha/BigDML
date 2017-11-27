@@ -215,7 +215,10 @@ fields terminated by '\t'
 stored as textfile;
 ```
 
+> 只有文本存储格式才能使用load data local inpath的方法进行数据加载填充
+
 ##### 序列化格式存储
+
 ```sql
 use kankan_odl;drop table if exists hive_table_templete;
 create external table if not exists union_install(
@@ -249,7 +252,15 @@ outputformat
 
 ###### 删除分区
 
-`use xmp_odl;alter table $tbl drop if exists partition(ds='20160808',hour='00');`
+```mysql
+use xmp_odl;
+alter table $tbl drop if exists partition(ds='20160808',hour='00');
+
+#例子
+alter table odl_shoulei_adv_gdtinfo drop if exists partition (ds='$date');
+```
+
+> 问题：为什么在insert overwrite table之前一般都先使用这个语句删除对应的分区
 
 ###### 修改分区
 
@@ -621,64 +632,55 @@ set hive.mapjoin.smalltable.filesize=250000
 
 ### 函数
 
-#### 日期时间操作
+#### 库函数
 
-基本操作
+##### 字符串
 
-```mysql
-# 整型时间戳转日期
-select from_unixtime(finsert_time,'yyyyMMdd HH:mm:ss') from xmp_odl.xmp_pv where ds='20161206';
+字符串处理函数一览
 
-# 日期转时间戳
-select unix_timestamp('20111207 13:01:03','yyyyMMdd HH:mm:ss') from test.dual;
-
-# 获取日期小时和分
-select substr('2011-12-07 13:01:03',1,16) from test.dual;  #2011-12-07 13:01
-
-# 统计小时内的最高值
-select hour(ftime),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170708' group by hour(ftime) order by cnt desc;
-
-# 统计五分钟的最高值
-select collect_set(substr(ftime,1,16))[0],int((hour(ftime)*60+minute(ftime))/5),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170908' group by int((hour(ftime)*60+minute(ftime))/5) order by cnt desc;
-
-# 统计每10秒内的最高值
-select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime))/10),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170908' group by int((hour(ftime)*3600+minute(ftime)*60+second(ftime))/10) order by cnt desc;
-```
-
-日期运算
-
-```
-（1）datediff(string enddate, stringstartdate)：
-     返回enddate和startdate的天数的差，注意日期必须为该格式
-     datediff('2009-03-01','2009-02-27') = 2
-
-（2）date_add(stringstartdate, int days)：
-     加days天数到startdate，注意日期必须为该格式
-     date_add('2008-12-31', 1) ='2009-01-01'
-
-（3）date_sub(stringstartdate, int days)：
-     减days天数到startdate，注意日期必须为该格式
-     date_sub('2008-12-31', 1) ='2008-12-30'
-
-（4）date_format(date,date_pattern)
-     CREATETEMPORARY FUNCTION date_format AS'com.taobao.hive.udf.UDFDateFormat';
-     根据格式串format 格式化日期和时间值date，返回结果串。
-     date_format('2010-10-10','yyyy-MM-dd','yyyyMMdd')
-     date_format('2010-12-23','yyyyMMdd');
-
-（5）str_to_date(str,format)  # 自定义
-     将字符串转化为日期函数
-	 CREATE TEMPORARY FUNCTION str_to_date AS 'com.taobao.hive.udf.UDFStrToDate';
-     str_to_date('09/01/2009','MM/dd/yyyy')
-```
-
-参考:[HIVE时间操作函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
-
-#### 字符串
+| 返回类型                         | 函数名                                      | 描述                                       |
+| ---------------------------- | ---------------------------------------- | ---------------------------------------- |
+| int                          | ascii(string str)                        | 返回str第一个字符串的数值                           |
+| string                       | base64(binary bin)                       | 将二进制参数转换为base64字符串                       |
+| string                       | concat(string\|binary A, string\|binary B...) | 返回将A和B按顺序连接在一起的字符串，如：concat('foo', 'bar') 返回'foobar' |
+| array<struct<string,double>> | context_ngrams(array<array<string>>, array<string>, int K, int pf) | 从一组标记化的句子中返回前k个文本                        |
+| string                       | concat_ws(string SEP, string A, string B...) | 类似concat() ，但使用自定义的分隔符SEP                |
+| string                       | concat_ws(string SEP, array<string>)     | 类似concat_ws() ，但参数为字符串数组                 |
+| string                       | decode(binary bin, string charset)       | 使用指定的字符集将第一个参数解码为字符串，如果任何一个参数为null，返回null。可选字符集为： 'US_ASCII', 'ISO-8859-1', 'UTF-8', 'UTF-16BE', 'UTF-16LE', 'UTF-16' |
+| binary                       | encode(string src, string charset)       | 使用指定的字符集将第一个参数编码为binary ，如果任一参数为null，返回null |
+| int                          | find_in_set(string str, string strList)  | 返回str在strList中第一次出现的位置，strList为用逗号分隔的字符串，如果str包含逗号则返回0，若任何参数为null，返回null。如： find_in_set('ab', 'abc,b,ab,c,def') 返回3 |
+| string                       | format_number(number x, int d)           | 将数字x格式化为'#,###,###.##'，四舍五入为d位小数位，将结果做为字符串返回。如果d=0，结果不包含小数点或小数部分 |
+| string                       | get_json_object(string json_string, string path) | 从基于json path的json字符串中提取json对象，返回json对象的json字符串，如果输入的json字符串无效返回null。Json 路径只能有数字、字母和下划线，不允许大写和其它特殊字符 |
+| boolean                      | in_file(string str, string filename)     | 如果str在filename中以正行的方式出现，返回true           |
+| int                          | instr(string str, string substr)         | 返回substr在str中第一次出现的位置。若任何参数为null返回null，若substr不在str中返回0。Str中第一个字符的位置为1 |
+| int                          | length(string A)                         | 返回A的长度                                   |
+| int                          | locate(string substr, string str[, int pos]) | 返回substr在str的位置pos后第一次出现的位置              |
+| string                       | lower(string A) lcase(string A)          | 返回字符串的小写形式                               |
+| string                       | lpad(string str, int len, string pad)    | 将str左侧用字符串pad填充，长度为len                   |
+| string                       | ltrim(string A)                          | 去掉字符串A左侧的空格，如：ltrim(' foobar ')的结果为'foobar ' |
+| array<struct<string,double>> | ngrams(array<array<string>>, int N, int K, int pf) | 从一组标记化的Returns the top-k 句子中返回前K个N-grams |
+| string                       | parse_url(string urlString, string partToExtract [, string keyToExtract]) | 返回给定URL的指定部分，partToExtract的有效值包括HOST，PATH， QUERY， REF， PROTOCOL， AUTHORITY，FILE和USERINFO。例如：  parse_url('http://facebook.com/path1/p.php?k1=v1&k2=v2#Ref1', 'HOST') 返回 'facebook.com'.。当第二个参数为QUERY时，可以使用第三个参数提取特定参数的值，例如： parse_url('http://facebook.com/path1/p.php?k1=v1&k2=v2#Ref1','QUERY', 'k1') 返回'v1' |
+| string                       | printf(String format, Obj... args)       | 将输入参数进行格式化输出                             |
+| string                       | regexp_extract(string subject, string pattern, int index) | 使用pattern从给定字符串中提取字符串。如： regexp_extract('foothebar', 'foo(.*?)(bar)', 2) 返回'bar' 有时需要使用预定义的字符类：使用'\s' 做为第二个参数将匹配s，'s'匹配空格等。参数index是Java正则匹配器方法group()方法中的索引 |
+| string                       | regexp_replace(string INITIAL_STRING, string PATTERN, string REPLACEMENT) | 使用REPLACEMENT替换字符串INITIAL_STRING中匹配PATTERN的子串，例如： regexp_replace("foobar", "oo\|ar", "") 返回'fb' |
+| string                       | repeat(string str, int n)                | 将str重复n次                                 |
+| string                       | reverse(string A)                        | 将字符串A翻转                                  |
+| string                       | rpad(string str, int len, string pad)    | 在str的右侧使用pad填充至长度len                     |
+| string                       | rtrim(string A)                          | 去掉字符串A右侧的空格，如： rtrim(' foobar ') 返回 ' foobar' |
+| array<array<string>>         | sentences(string str, string lang, string locale) | 将自然语言文本处理为单词和句子，每个句子在适当的边界分割，返回单词的数组。参数lang和local为可选参数，例如： sentences('Hello there! How are you?') 返回( ("Hello", "there"), ("How", "are", "you") ) |
+| string                       | space(int n)                             | 返回n个空格的字符串                               |
+| array                        | split(string str, string pat)            | 用pat分割字符串str，pat为正则表达式                   |
+| map<string,string>           | str_to_map(text[, delimiter1, delimiter2]) | 使用两个分隔符将文本分割为键值对。第一个分隔符将文本分割为K-V 对，第二个分隔符分隔每个K-V 对。默认第一个分隔符为“**，**“，第二个分隔符为= |
+| string                       | substr(string\|binary A, int start) substring(string\|binary A, int start) | 返回A从位置start直到结尾的子串                       |
+| string                       | substr(string\|binary A, int start, int len) substring(string\|binary A, int start, int len) | 返回A中从位置start开始，长度为len的子串，如： substr('foobar', 4, 1) 返回 'b' |
+| string                       | translate(string input, string from, string to) | 将input中出现在from中的字符替换为to中的字符串，如果任何参数为null，结果为null |
+| string                       | trim(string A)                           | 去掉字符串A两端的空格                              |
+| binary                       | unbase64(string str)                     | 将base64字符串转换为二进制                         |
+| string                       | upper(string A) ucase(string A)          | 返回字符串A的大写形式                              |
 
 一般函数
 
-```
+```mysql
 （1）length(stringA)：返回字符串长度
 
 （2）concat(stringA, string B...)：
@@ -735,22 +737,151 @@ regexp_extract(string subject, string pattern, int index)
 select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 ```
 
-#### 其它函数
+##### 日期时间
+
+基本操作
+
+```mysql
+# 整型时间戳转日期
+select from_unixtime(finsert_time,'yyyyMMdd HH:mm:ss') from xmp_odl.xmp_pv where ds='20161206';
+
+# 日期转时间戳
+select unix_timestamp('20111207 13:01:03','yyyyMMdd HH:mm:ss') from test.dual;
+
+# 获取日期小时和分
+select substr('2011-12-07 13:01:03',1,16) from test.dual;  #2011-12-07 13:01
+
+# 统计小时内的最高值
+select hour(ftime),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170708' group by hour(ftime) order by cnt desc;
+
+# 统计五分钟的最高值
+select collect_set(substr(ftime,1,16))[0],int((hour(ftime)*60+minute(ftime))/5),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170908' group by int((hour(ftime)*60+minute(ftime))/5) order by cnt desc;
+
+# 统计每10秒内的最高值
+select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime))/10),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170908' group by int((hour(ftime)*3600+minute(ftime)*60+second(ftime))/10) order by cnt desc;
+```
+
+日期运算
+
+```shell
+（1）datediff(string enddate, stringstartdate)：
+     返回enddate和startdate的天数的差，注意日期必须为该格式
+     datediff('2009-03-01','2009-02-27') = 2
+
+（2）date_add(stringstartdate, int days)：
+     加days天数到startdate，注意日期必须为该格式
+     date_add('2008-12-31', 1) ='2009-01-01'
+
+（3）date_sub(stringstartdate, int days)：
+     减days天数到startdate，注意日期必须为该格式
+     date_sub('2008-12-31', 1) ='2008-12-30'
+
+（4）date_format(date,date_pattern)
+     CREATETEMPORARY FUNCTION date_format AS'com.taobao.hive.udf.UDFDateFormat';
+     根据格式串format 格式化日期和时间值date，返回结果串。
+     date_format('2010-10-10','yyyy-MM-dd','yyyyMMdd')
+     date_format('2010-12-23','yyyyMMdd');
+
+（5）str_to_date(str,format)  # 自定义
+     将字符串转化为日期函数
+	 CREATE TEMPORARY FUNCTION str_to_date AS 'com.taobao.hive.udf.UDFStrToDate';
+     str_to_date('09/01/2009','MM/dd/yyyy')
+```
+
+参考:[HIVE时间操作函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
 
 ##### 数学函数
 
+- 窗口函数
+  - 分区排序
+  - 动态GroupBy
+  - TopN
+  - 累计计算
+  - 层次查询
+- 分析函数
+  - RANK
+  - ROW_NUMBER
+  - DENSE_RANK
+  - CUME_DIST
+  - PERCENT_RANK
+  - NTILE
+- 混合函数
+  - ava_method(class,method [,arg1 [,arg2])
+  - reflect(class,method [,arg1 [,arg2..]])
+  - hash(a1 [,a2...])
+
+###### 窗口函数
+
+- lead
+- lag
+- first_value
+- last_value
+
+###### 分析函数
+
+- cume_dist
+
+- row_number
+
+- percent_rank
+
+- ntile
+
+  按层次查询
+
+- percentile
+
+  返回分位点对应的记录值
+
+- 累计函数
+
+  计算一定范围内、一定值域内或者一段时间内的累积和以及移动平均值等
+
+- rank()/dense_rank()
+
+```mysql
+# 统计每组前N个
+use xmp_data_mid;
+SELECT A.ds, A.srctbl, A.srcdb,A.datasize
+  FROM (SELECT T.ds,
+               T.srctbl,
+               T.srcdb,
+               T.hour,
+               T.datasize,
+               RANK() OVER(PARTITION BY T.srctbl ORDER BY T.datasize DESC) RK
+          FROM group_test T) A
+ WHERE RK < 4;
+```
+
+###### 混合函数
+
+- java_method(class,method [,arg1 [,arg2])
+- reflect(class,method [,arg1 [,arg2..]])
+- hash(a1 [,a2...])
+
 ##### 集合操作
 
-| **Return Type** | **Name(Signature)**             | **Description**                          |
-| --------------- | ------------------------------- | ---------------------------------------- |
-| int             | size(Map<K.V>)                  | Returns the number of elements in the map type. |
-| int             | size(Array<T>)                  | Returns the number of elements in the array type. |
-| array<K>        | map_keys(Map<K.V>)              | Returns an unordered array containing the keys of the input map. |
-| array<V>        | map_values(Map<K.V>)            | Returns an unordered array containing the values of the input map. |
-| boolean         | array_contains(Array<T>, value) | Returns TRUE if the array contains value. |
-| array<t>        | sort_array(Array<T>)            | Sorts the input array in ascending order according to the natural ordering of the array elements and returns it (as of version [0.9.0](https://issues.apache.org/jira/browse/HIVE-2279)). |
-| array           | collect_set(col)                | Returns a set of objects with duplicate elements eliminated. |
-| array           | collect_list(col)               | Returns a list of objects with duplicates. (As of Hive [0.13.0](https://issues.apache.org/jira/browse/HIVE-5294).) |
+| **Return Type** | **Name(Signature)**                    | **Description**                          |
+| --------------- | -------------------------------------- | ---------------------------------------- |
+| int             | size(Map<K.V>)                         | Returns the number of elements in the map type. |
+| int             | size(Array<T>)                         | Returns the number of elements in the array type. |
+| array<K>        | map_keys(Map<K.V>)                     | Returns an unordered array containing the keys of the input map. |
+| array<V>        | map_values(Map<K.V>)                   | Returns an unordered array containing the values of the input map. |
+| boolean         | array_contains(Array<T>, value)        | Returns TRUE if the array contains value. |
+| array<t>        | sort_array(Array<T>)                   | Sorts the input array in ascending order according to the natural ordering of the array elements and returns it (as of version [0.9.0](https://issues.apache.org/jira/browse/HIVE-2279)). |
+| array           | collect_set(col)                       | Returns a set of objects with duplicate elements eliminated. |
+| array           | collect_list(col)                      | Returns a list of objects with duplicates. (As of Hive [0.13.0](https://issues.apache.org/jira/browse/HIVE-5294).) |
+| int             | find_in_set(string str,string strlist) | 返回str在strlist第一次出现的位置，strlist是用逗号分割的字符串。如果没有找该str字符，则返回0 |
+
+例子：
+
+```mysql
+select find_in_set('ab','ef,ab,de'); -- 2
+select find_in_set('cd','ef,ab,de'); -- 0 
+
+```
+
+
 
 ##### 字典操作
 
@@ -782,8 +913,6 @@ insert into xmp_data_mid.map_test select 'vvvv',b from xmp_data_mid.map_test;
 # 如果map里嵌了一个map，则里面的map的是字符串，不能直接被查询
 ```
 
-
-
 ###### json字符串
 
 取值
@@ -800,7 +929,20 @@ get_json_object(string json_string, string path)
 > get_json_object(get_json_object(content,'$.ed'),'$.clickid') as clickid,
 > ```
 
+转化
 
+```mysql
+# json字符串转map对象
+select regexp_replace('{"张":"二","李":"小"}','\\}|\\{', '');
+select str_to_map(regexp_replace('{"张":"二","李":"小"}','\\}|\\{', ''));
+-- 转化的结果是：{"\"李\"":"\"小\"","\"张\"":"\"二\""}
+
+select regexp_replace('{张:二,李:小}','\\}|\\{', '');
+select str_to_map(regexp_replace('{张:二,李:小}','\\}|\\{', ''));
+-- 转化的结果是：{"李":"小","张":"二"}
+```
+
+合并
 
 ```json
 {"redbao":'android','isnew':'new'}
@@ -814,8 +956,6 @@ get_json_object(string json_string, string path)
   "new":取isnew的结果
 }
 ```
-
-
 
 #### UDF
 
@@ -874,34 +1014,9 @@ dict(b) #{1: 2, 3: 4, 5: 6}
 
 ##### 分析函数
 
-###### ntile
-
-按层次查询
-
-###### percentile
-
-返回分位点对应的记录值
-
-###### 累积函数
-
-计算一定范围内、一定值域内或者一段时间内的累积和以及移动平均值等
-
-###### rank()/dense_rank()
-
 ```mysql
-use xmp_data_mid;
-SELECT A.ds, A.srctbl, A.srcdb,A.datasize
-  FROM (SELECT T.ds,
-               T.srctbl,
-               T.srcdb,
-               T.hour,
-               T.datasize,
-               RANK() OVER(PARTITION BY T.srctbl ORDER BY T.datasize DESC) RK
-          FROM group_test T) A
- WHERE RK < 4;
+# 待补充
 ```
-
-统计每组前N个
 
 #### Streaming操作
 
@@ -1059,25 +1174,6 @@ local hql="$MUDF;insert overwrite table xmp_mid.gcid_purefilename_filter partiti
 
 > 关键词过滤的核心是如何批量处理关键词的问题
 
-#### 数据迁移
-
-数据迁移指的是在不同的hive数据仓库或者不同的hive集群上进行数据的迁移
-
-##### 结构迁移
-
-```
-create table xxx like xxx;
-```
-
-##### 结构和数据迁移
-
-```mysql
-create table xxx as select * from xxx;
-
-```
-
-> 不确定分区是否也一起迁移了，或者迁移的数据是否也按分区
-
 ### 优化
 
 #### 多表join
@@ -1131,9 +1227,49 @@ set mapred.reduce.tasks=18;
 
 //待完善
 
+### 备份
+
+#### 迁移
+
+数据迁移指的是在不同的hive数据仓库或者不同的hive集群上进行数据的迁移
+
+**结构迁移**
+
+结构迁移可以跨库
+
+```mysql
+create table db1.xxx like db2.xxx;
+```
+
+**结构和数据迁移**
+
+```mysql
+create table db1.xxx as select * from db2.xxx;
+```
+
+> 不确定分区是否也一起迁移了，或者迁移的数据是否也按分区
+
+#### 导入
+
+```mysql
+load data local inpath '/liguodong/hive/data' into table employee;
+```
+
+#### 导出
+
+```mysql
+insert overwrite local directory '/home/wyp/wyp' select * from wyp;
+```
+
 ### 问题
 
+#### 面试
+
+//待补充
+
 #### 查询
+
+##### join时候字段非相等操作
 
 问题描述：
 
@@ -1167,7 +1303,7 @@ where  t2.par_datetime in ('201405')
 
   [官方参考手册（注意官方函数参考）](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML#LanguageManualDML-Delete)
 
-​	[hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
+  ​[hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
 
 - 函数
 
@@ -1177,7 +1313,7 @@ where  t2.par_datetime in ('201405')
 
   [HIVE数学函数](http://blog.csdn.net/zhoufen12345/article/details/53608271)
 
-  [HIVE常见内置函数及其使用(推荐)](http://blog.csdn.net/scgaliguodong123_/article/details/46954009)
+  [HIVE常见内置函数及其使用(推荐)](http://blog.csdn.net/scgaliguodong123_/article/details/46954009)(还有要探索的地方)
 
 - 查询
 
