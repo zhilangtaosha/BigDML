@@ -1,0 +1,45 @@
+---
+title: "RStatic"
+author: "yjm"
+date: "2016年6月22日"
+output: html_document
+---
+
+###R统计学 <http://rmarkdown.rstudio.com>.
+
+
+> 演示例子
+```{r}
+summary(cars)
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+> 求偏度和峰度
+
+```{r}
+
+```
+
+> 分块求均值（相当于滑动窗不重叠）
+
+```{r}
+set.seed(123)
+x <- floor(runif(22)*100)
+browser()
+
+newlength <- ceiling(length(x)/4)*4
+
+x[newlength] <- NA
+x <- matrix(x,nrow = 4)
+
+colMeans(x,na.rm = TRUE)  #用这种方式，思路很巧妙
+
+
+```
