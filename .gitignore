@@ -43,3 +43,7 @@ books/
 *.class
 *.jar
 *.pdf
+.Rproj.user
+*.Rproj
+*.Rhistory
+*.RData
