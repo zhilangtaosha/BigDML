@@ -5,10 +5,11 @@
 library(prophet)
 library(dplyr)
 
-f.mprohet_demo <- function()
+f.mprohet_predict <- function()
 {
  	# 读入数据集，并对日访问量y做对数处理
- 	df <- read.csv('predict/prophet/data/example_wp_peyton_manning.csv') %>% mutate(y=log(y))
+ 	#df <- read.csv('predict/prophet/data/example_wp_peyton_manning.csv') %>% mutate(y=log(y))
+ 	df <- read.csv('predict/prophet/data/xmp_dau',sep = '\t') %>% mutate(y=log(y))
 
 	# 模型拟合
 	m <- prophet(df)
@@ -27,7 +28,7 @@ f.mprohet_demo <- function()
 
 }
 
-f.mprohet_increase <- function()
+f.mprohet_limit <- function()
 {
     # 读入数据集，并对日访问量y做对数处理
     df <- read.csv('predict/prophet/data/example_wp_R.csv') %>% mutate(y=log(y))
