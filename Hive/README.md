@@ -95,7 +95,7 @@ load data local inpath "map.txt"  overwrite into table map_test;
 
 > 注意:
 >
-> map的字典不能在order by中使用，需要使用别名
+> map的字典不能直接在order by中使用，需要使用别名
 >
 > ```mysql
 > select mdict['xxx'] as mdx,mdict['vvv'] from db1.table1 order by  mdx;
@@ -542,7 +542,7 @@ select split(r"A:\xun\白石\大哥\wzhang\vvv.rar",'\\\') from test.dual;
 
 left join(左连接)：返回两个表中连结字段相等的行和左表中的行；
 
->  左表(A)的记录将会全部表示出来,而右表(B)只会显示符合搜索条件的记录(例子中为: A.aID = B.bID).B表记录不足的地方均为NULL.
+>  左表(A)的记录将会全部表示出来,而右表(B)只会显示符合搜索条件的记录(例子中为: A.aID = B.bID),B表记录不足的地方均为NULL.
 
 ```mysql
 insert overwrite table download_union.register_web_all partition(dt='$dt',stat_source='tel') 
@@ -567,11 +567,11 @@ from (
 
 ##### right outer join
 
-right join(右联接)：返回包括右表中的所有记录和左表中联结字段相等的记录。
+right join(右连接)：返回包括右表中的所有记录和左表中连接字段相等的记录。
 
 > right outer join的结果刚好相反,这次是以右表(B)为基础的,A表不足的地方用NULL填充.
 
-```
+```mysql
 
 ```
 
@@ -579,7 +579,7 @@ right join(右联接)：返回包括右表中的所有记录和左表中联结�
 
 全外连接
 
-```
+```mysql
 
 ```
 
@@ -792,25 +792,17 @@ select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime
 
 ##### 数学函数
 
-- 窗口函数
-  - 分区排序
-  - 动态GroupBy
-  - TopN
-  - 累计计算
-  - 层次查询
-- 分析函数
-  - RANK
-  - ROW_NUMBER
-  - DENSE_RANK
-  - CUME_DIST
-  - PERCENT_RANK
-  - NTILE
-- 混合函数
-  - ava_method(class,method [,arg1 [,arg2])
-  - reflect(class,method [,arg1 [,arg2..]])
-  - hash(a1 [,a2...])
-
 ###### 窗口函数
+
+窗口函数主要作用：
+
+- 分区排序
+- 动态GroupBy
+- TopN
+- 累计计算
+- 层次查询
+
+窗口函数一览：
 
 - lead
 - lag
@@ -818,6 +810,17 @@ select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime
 - last_value
 
 ###### 分析函数
+
+分析函数主要用途：
+
+- RANK
+- ROW_NUMBER
+- DENSE_RANK
+- CUME_DIST
+- PERCENT_RANK
+- NTILE
+
+分析函数一览：
 
 - cume_dist
 
@@ -854,6 +857,8 @@ SELECT A.ds, A.srctbl, A.srcdb,A.datasize
 ```
 
 ###### 混合函数
+
+混合函数一览：
 
 - java_method(class,method [,arg1 [,arg2])
 - reflect(class,method [,arg1 [,arg2..]])
@@ -1070,6 +1075,20 @@ as install,channel,peerid,version, package_name, installtype,fip,ftime ;
 
 ### 积累
 
+hive注释`xxx.hql`
+
+```mysql
+--i'm comment(回车)
+select count(*) from dual;
+```
+
+> 对比mysql的注释`xxx.sql`
+>
+> ```mysql
+> # 这是mysql的注释
+> select * from xx;
+> ```
+
 #### url解析
 
 ##### url还原
@@ -1133,7 +1152,7 @@ select concat(parse_url('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_pu
 
 #### ip处理
 
-通过ip处理，获取位置等信息
+通过ip处理，获取位置（省份、市）等信息
 
 ipstr->int
 
@@ -1173,6 +1192,29 @@ local hql="$MUDF;insert overwrite table xmp_mid.gcid_purefilename_filter partiti
 #### 关键词过滤
 
 > 关键词过滤的核心是如何批量处理关键词的问题
+>
+
+#### 行列拆分
+
+##### explode
+
+```mysql
+# 展开array成每行一个
+select explode(b) from xmp_data_mid.array_test;
+
+# 展开map成k，v的形式，每行一个kv对
+select explode(b) as (k,v) from xmp_data_mid.map_test;
+```
+
+##### lateral view
+
+```mysql
+# array拆分成行
+select fu1,fu2s from xmp_data_mid.xmpplaydur_test lateral view explode(fu2)b as fu2s limit 10;
+
+# map拆分成行
+select a,k,v from xmp_data_mid.map_test lateral view explode(b)be as k,v limit 10;
+```
 
 ### 优化
 
@@ -1265,7 +1307,7 @@ insert overwrite local directory '/home/wyp/wyp' select * from wyp;
 
 #### 面试
 
-//待补充
+//待添加
 
 #### 查询
 
@@ -1275,7 +1317,7 @@ insert overwrite local directory '/home/wyp/wyp' select * from wyp;
 
 ​	Both left and right aliases encountered in JOIN 's1'
 
-解决方法
+解决方法：
 
 ```mysql
 # 两个表join的时候，不支持两个表的字段 非相等 操作, 例如t2.dtlogtime>=t1.s1 
@@ -1315,6 +1357,8 @@ where  t2.par_datetime in ('201405')
 
   [HIVE常见内置函数及其使用(推荐)](http://blog.csdn.net/scgaliguodong123_/article/details/46954009)(还有要探索的地方)
 
+  [HIVE窗口分析函数](http://lxw1234.com/archives/2015/04/193.htm)
+
 - 查询
 
   [连接参考](http://www.cnblogs.com/pcjim/articles/799302.html)
@@ -1324,6 +1368,8 @@ where  t2.par_datetime in ('201405')
   [HIVE数据迁移](http://blog.csdn.net/u9999/article/details/34119441)
 
   [Hive SQL: Both left and right aliases encountered in JOIN](https://stackoverflow.com/questions/36015035/hiv	e-sql-both-left-and-right-aliases-encountered-in-join)
+
+  [lateral view explode用法](http://blog.csdn.net/bitcarmanlee/article/details/51926530)
 
 - 优化
 
