@@ -4,15 +4,14 @@ library(reshape2)
 #getwd()
 #setwd('E:/OneDrive - std.uestc.edu.cn/Code/Git/R/study/stat')
 
-# 数据转换和统计
-fun.datatranform_stat1 <- function()
+# 演示数据加载
+fun.load_example_data <- function()
 {
   d1 <- data.frame(sex=c("M","M","F","F","M"),
                    Color=c("green","blue","green","red","blue"),
                    Freq=c(0,1,3,1,2))
-  
-  
   table(d1)
+
   olddata_wide <- read.table(header=TRUE, text='
                              subject sex control cond1 cond2
                              1   M     7.9  12.3  10.7
@@ -20,7 +19,7 @@ fun.datatranform_stat1 <- function()
                              3   F     9.5  13.1  13.8
                              4   M    11.5  13.4  12.9
                              ')
-  olddata_wide$subject <- factor(olddata_wide$subject)
+  olddata_wide$subject <- factor(olddata_wide$subject)  # Make sure the subject column is a factor（下同）
   
   olddata_long <- read.table(header=TRUE, text='
                              subject sex condition measurement
@@ -37,17 +36,16 @@ fun.datatranform_stat1 <- function()
                              4   M     cond1        13.4
                              4   M     cond2        12.9
                              ')
-  # Make sure the subject column is a factor
   olddata_long$subject <- factor(olddata_long$subject)
   
 }
 
 
-# 揉数据
+# 揉数据(以xmp数据为例)
 fun.datatranform_stat2<-function()
 {
   
-  #分组汇
+  #分组汇总
   sstar <- read.table('data/wwxianka',header = T)
   colnames(sstar) <- c('date','channel','dpv','duv')
   sstar$date <-as.Date(as.character(sstar$date),'%Y%m%d')
@@ -75,7 +73,7 @@ fun.datatranform_stat2<-function()
 }
 
 
-# 长宽格式转换
+# 揉数据(以kpi数据为例)
 fun.datatranform_stat3<-function()
 {
   library(reshape2)
@@ -93,4 +91,5 @@ fun.datatranform_stat3<-function()
     201608 43477346 45188957 44567973 44699149 43650183 45116368 46840558
   '''
   
+
 }

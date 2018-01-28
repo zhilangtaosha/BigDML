@@ -2,6 +2,22 @@
 
 [TOC]
 
+R数据分析R包一览：
+
+• ggplot2 - 数据绘图
+
+• dplyr - 数据清洗
+
+• tidyr/reshape2 - 数据转换
+
+• lubridate - 处理日期时间数据
+
+• stringr - 字符串处理
+
+• forcats - 处理类别变量
+
+• readr - 文件读写
+
 ### 数据准备
 
 #### 数据接入
@@ -23,6 +39,8 @@
 9. 连接MySQL数据库
 
 
+//详细补充
+
 ##### 缺失值处理
 
 缺失的数据量相对数据集的大小来讲比较小，并且为了不偏离分析，忽略少了的样本或许是最后的策略。
@@ -34,6 +52,16 @@
 #### 数据转换
 
 长宽格式转换又称行列转换，长数据至少有一列是变量的类型，一列是变量的值，ggplot2中处理的大多都是长数据类型，大多模型比如`lm`,`glm`和`gam`等都利用的也都是长数据
+
+##### R包说明
+
+| reshape2 | tidyr    | 功能               |
+| -------- | -------- | ---------------- |
+| melt     | gather   | 函数对宽数据进行处理，得到长数据 |
+| cast     | spread   | 函数对长数据进行处理，得到宽数据 |
+|          | unit     | 列合并              |
+| colsplit | separate | 列拆分              |
+|          |          |                  |
 
 例子:
 
@@ -168,10 +196,10 @@ Aggregation function missing: defaulting to length
 
 ##### tidyr包
 
-1. `gather`—宽数据转为长数据。类似于`reshape2`包中的`melt`函数
-2. `spread`—长数据转为宽数据。类似于`reshape2`包中的`cast`函数
-3. `unit`       — 多列合并为一列
-4. `separate`—将一列分离为多列
+1. `gather`    — 宽数据转为长数据。类似于`reshape2`包中的`melt`函数
+2. `spread`    — 长数据转为宽数据。类似于`reshape2`包中的`cast`函数
+3. `unit`        — 多列合并为一列
+4. `separate ` — 将一列分离为多列
 
 - **spread**
 
@@ -180,7 +208,23 @@ spread(data, key, value, fill = NA, convert = FALSE, drop = TRUE)
 #其中key列就是分类列，value列是该分类列的值，要求key值不重复
 ```
 
+- **gather**
 
+```R
+
+```
+
+- **unit**
+
+```R
+
+```
+
+- **separate**
+
+```
+
+```
 
 ### 数理统计
 

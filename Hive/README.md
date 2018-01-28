@@ -52,7 +52,7 @@ select split("wew_w23_ew0","_")[a.cnt-1] from (select size(split("wew_w23_ew0",'
 ```mysql
 create table array_test(a array<int>, b array<string>) ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t' COLLECTION ITEMS TERMINATED BY ',' STORED AS TEXTFILE;
 
-load data local inpath "array.txt"  overwrite into table array_test;
+load data local inpath "array.txt"  overwrite into table array_test partition(ds=20180114);
 ```
 
 **map**
@@ -84,12 +84,15 @@ insert into table xmp_data_mid.map_test select 'hahh',str_to_map('key3:val3,key4
 例子：
 
 ```mysql
+# 建表
 create table map_test(a string , b map<string, string>)
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY '\t'
 COLLECTION ITEMS TERMINATED BY ','
 MAP KEYS TERMINATED BY ':'
 STORED AS TEXTFILE;
+
+#加载
 load data local inpath "map.txt"  overwrite into table map_test;
 ```
 
@@ -104,24 +107,35 @@ load data local inpath "map.txt"  overwrite into table map_test;
 **struct**
 
 ```mysql
+# 建表
+create table struct_test(id INT, info struct<name:STRING, age:INT>)  
+ROW FORMAT DELIMITED 
+FIELDS TERMINATED BY ','                         
+COLLECTION ITEMS TERMINATED BY ':'
+STORED AS TEXTFILE;
 
+# 加载
+load data local inpath "struct.txt"  overwrite into table struct_test;
 ```
 
 例子：
 
+```mysql
+select info.age from struct_test;
 ```
 
-```
-
-**整体测试表：**
+**综合例子：**
 
 ```mysql
+# 建表
 create table group_test(ds string,srctbl string,srcdb string, hour string,datasize int)
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY '\t'
 COLLECTION ITEMS TERMINATED BY ','
 MAP KEYS TERMINATED BY ':'
 STORED AS TEXTFILE;
+
+# 加载
 load data local inpath "group.txt"  overwrite into table group_test;
 ```
 
@@ -203,6 +217,9 @@ location '/user/complat/warehouse/apple1_bdl.db/';
 > 这是创建库而不指定库的路径的时候库的目录是/user/xxx/warehouse/,此处删除库的时候会直接将整个目录删除。
 
 ##### 文本格式存储
+
+外部表
+
 ```sql
 use kankan_odl;drop table if exists hive_table_templete;
 create external table if not exists hive_table_templete(
@@ -215,7 +232,21 @@ fields terminated by '\t'
 stored as textfile;
 ```
 
-> 只有文本存储格式才能使用load data local inpath的方法进行数据加载填充
+内部表
+
+```mysql
+use kankan_odl;drop table if exists hive_table_templete;
+create table if not exists hive_table_templete(
+  subid int,
+  peerid string,
+  movieid int)
+partitioned by (ds string)
+row format delimited
+fields terminated by '\t'
+stored as textfile;
+```
+
+> 只有文本存储格式才能使用`load data local inpath`的方法进行数据加载填充
 
 ##### 序列化格式存储
 
@@ -236,7 +267,7 @@ fields terminated by '\u0001'
 stored as inputformat
   'org.apache.hadoop.mapred.SequenceFileInputFormat'
 outputformat
-  'org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat'
+  'org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat';
 ```
 #### 属性修改
 
@@ -318,30 +349,6 @@ alter table xmp_subproduct_install set SERDEPROPERTIES('serialization.format' = 
 > ` drop table if exists $tbl`
 
 删除的时候会连分区和文件(内部表)一起删除
-
-#### 数据导入导出
-
-##### 导入数据
-
-```shell
-ihql="use kankan_odl;delete from tbname where ds='${date}';load data local inpath  '/home/work/test.txt' into table tbname;"
-${HIVE} -e "{chql}"
-```
-
-##### 导出数据
-
-- 命令行输出重定向
-
-```shell
-hql="use kankan_odl;select '${date}',fu3,fu2,count(*) from xmpcloud2 where ds='{date}' and length(fu4)=16 group by fu3,fu2;"
-${HIVE} -e "${hql}" > xmp_cloud_20161201
-```
-
-- 导出数据到本地文件(并指定字段分割方式)
-
-```sql
-insert overwrite local directory '/data/access_log/access_log.45491' row format delimited fields terminated by '\t' collection items terminated by ',' select * from xx
-```
 
 ### 查询
 
@@ -439,9 +446,11 @@ ORDER BY
 
 #### 正则
 
+##### 元字符
+
 hive中的正则转义使用两个反斜杠， 即‘//’，
 
- 基础元字符：
+基础元字符1：
 
 | 元字符            | 含义                               | 备注   |
 | -------------- | -------------------------------- | ---- |
@@ -476,21 +485,37 @@ hive中的正则转义使用两个反斜杠， 即‘//’，
 | (?i) | 这个标志能让表达式忽略大小写进行匹配                       |      |
 | (?x) | 在这种模式下，匹配时会忽略(正则表达式里的)空格字符，例如空格，tab，回车之类 |      |
 
-
+##### 正则匹配
 
 ```mysql
 # 正则匹配
 select  'abc'  regexp '^[a-z]*$'   from test.dual;
 select  'http://v.xunlei.com'  regexp 'http://v.xunlei.com/?$'   from test.dual; //true
 
+```
+
+##### 正则抽取
+
+```mysql
 # 正则抽取（注意此处不能使用\d和\w等类似的字符）
 select regexp_extract('http://xxx/details/0/40.shtml','http://xxx/details/([0-9]{1,})/([0-9]{1,})\.shtml',1) from test.dual; # 返回40
 
 select regexp_extract('5.2.14.5672',"(^\\d+)\\.(\\d+)\\.(\\d+)",0); 
 select regexp_extract('0796-7894145','(^\\d{3,4})\\-?(\\d{7,8}$)',1); //结果0796
 select regexp_extract('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_push_noti_nfxf','(.*)\\?referfrom=(.*)',1); //结果https://pay.xunlei.com/bjvip.html
+```
 
+例子：
 
+```mysql
+# 提取中文字字符
+select regexp_extract(results,'([\\u4e00-\\u9fa5]+)',1) from vip_mid.vip_block_detail_djq_d limit 3;
+select regexp_extract('dui你ada 大坏2232！ 蛋','([\\u4e00-\\u9fa5]+)',1) from test.dual; #结果你
+```
+
+##### 正则替换
+
+```mysql
 # 正则替换
 select regexp_replace('foobar','oo|ba','') from test.dual; # 返回fr
 
@@ -499,12 +524,26 @@ select regexp_replace('<李>{二}狗(张)|).%-+&【德! 】*[ 江 ]?','_|\\\|>|<
 
 # 正则替换特殊字符--shell版
 select regexp_replace('<李>{二}狗(张)|).%-+&【德! 】*[ 江 ]?','_|\\\\\\|>|<|\\\\{|\\\\}|%|\\\\||!|@|#|$|\\\\s|\\\\[|\\\\]|\\\\.|\\\\?|\\\\*|【|】|，|\\\\(|\\\\)|：|&|-|\\\\+|:|。|','');
-
-# 正则分割
-select split(fu1,'\\.') from xmp_odl.xmpcloud2 where ds='20170502' and hour=11 limit 10;
 ```
 
-一个使用正则的聚合例子：
+例子：
+
+```mysql
+# 正则替换获取中文字符
+select regexp_replace(results,'([\\w\\:\\;\\"\\.]+)','') from vip_mid.vip_block_detail_djq_d limit 3;
+```
+
+##### 正则分割
+
+```mysql
+# 正则分割
+select split(fu1,'\\.') from xmp_odl.xmpcloud2 where ds='20170502' and hour=11 limit 10;
+
+# 正则非中文字符分割（得到中文字符序列）
+select split('张1大2332额都是大坏蛋，！dwe wo们','[^\\u4e00-\\u9fa5]+')[2] from test.dual;
+```
+
+一个综合正则例子：
 
 ```mysql
 # 正则聚合
@@ -628,6 +667,13 @@ on a.pid=b.peerid;
 设置参数：
 set hive.auto.convert.join=true;
 set hive.mapjoin.smalltable.filesize=250000
+```
+
+##### 分组
+
+```mysql
+group by xx
+grouping sets ((),(xx,xxx,vvv),(xx,xx))
 ```
 
 ### 函数
@@ -866,6 +912,8 @@ SELECT A.ds, A.srctbl, A.srcdb,A.datasize
 
 ##### 集合操作
 
+集合函数一览：
+
 | **Return Type** | **Name(Signature)**                    | **Description**                          |
 | --------------- | -------------------------------------- | ---------------------------------------- |
 | int             | size(Map<K.V>)                         | Returns the number of elements in the map type. |
@@ -891,6 +939,19 @@ select find_in_set('cd','ef,ab,de'); -- 0
 ##### 字典操作
 
 ###### map类型
+
+函数一览：
+
+| 函数名        | 用法             | 备注   |
+| ---------- | -------------- | ---- |
+| map_keys   | map_keys(xx)   |      |
+| map_values | map_values(yy) |      |
+|            |                |      |
+
+> ```mysql
+> # 查看key中是否含有某项
+> array_contains(map_keys(gameinfo),'wow')
+> ```
 
 取值
 
@@ -968,20 +1029,38 @@ udf和streaming的区别在于udf必须是在hadoop平台上的文件，而strea
 
 ##### 编解码
 
-```
+原生
+
+```shell
 hex/unhex（自带）
 数据put的时候，二进制数据乱码问题
-
-uridecode/uriencode
-字符串中有空格等的风险，如url参数传递，通常编码后再传
 
 md5
 计算md5值（自带）
 ```
 
+平台提供
+
+```mysql
+# 已经编译进hive源码，不需要再加载jar包
+xl_urldecode() 
+
+# 需要先加载jar包，字符串中有空格等的风险，如url参数传递，通常编码后再传
+uridecode()/uriencode()函数
+add jar $KK_WORKSPACE/bin/jar/com.xunlei.kk.feature.udf.jar
+create temporary function uridecode as 'com.xunlei.kk.feature.udf.UDFURIDecoder';
+create temporary function uriencode as 'com.xunlei.kk.feature.udf.UDFURIEncoder';
+```
+
+自定义
+
+```mysql
+# 使用python streaming处理,或者本地处理
+```
+
 ##### 数据类型转换
 
-str->map
+**str->map**
 
 > str_to_map(strings ,delim1,delim2), delin1键值对分隔符，delim2键值分隔符
 
@@ -989,7 +1068,7 @@ str->map
 select str_to_map('k1:v1,k2:v2',',',':'); # {"k1":"v1","k2":"v2"}
 ```
 
-str->array
+**str->array**
 
 > split(strings,pattern)
 
@@ -997,7 +1076,7 @@ str->array
 select split('5.2.4.1234','\\.');  # ["5","2","4","1234"]
 ```
 
-array->str
+**array->str**
 
 > concat_ws(delim,ARRAY arr)
 
@@ -1008,7 +1087,7 @@ select concat_ws('_',["5","2","4","1234"]);
 
 以上均是自带的，以下是扩展：
 
-array->map
+**array->map**
 
 ```python
 # 比如k1,v1,k2,v2,其顺序依次是key,value,key,value,可以参考python-streaming实现
@@ -1095,7 +1174,7 @@ select count(*) from dual;
 
 上报的url大多都经过uriencode进行编码，对`[:?,/]`等进行编码，若要正常解析，先使用uridecode对url解析，如下：
 
-```
+```mysql
 # 解析前：
 http%3A%2F%2Flist.v.xunlei.com%2Fv%2Ctype%2Cgenre%2F5%2Cteleplay%2Cjd%2Fpage6%2F
 # 解析后
@@ -1198,6 +1277,8 @@ local hql="$MUDF;insert overwrite table xmp_mid.gcid_purefilename_filter partiti
 
 ##### explode
 
+将列数据展开成行数据
+
 ```mysql
 # 展开array成每行一个
 select explode(b) from xmp_data_mid.array_test;
@@ -1207,6 +1288,8 @@ select explode(b) as (k,v) from xmp_data_mid.map_test;
 ```
 
 ##### lateral view
+
+将拆分的数据作为新列数据，就像独立的列一样
 
 ```mysql
 # array拆分成行
@@ -1222,7 +1305,7 @@ select a,k,v from xmp_data_mid.map_test lateral view explode(b)be as k,v limit 1
 
 优化代码结构
 
-```
+```mysql
 select .. from join tables (a,b,c) with keys (a.key, b.key, c.key) where ....   
 ```
 
@@ -1294,13 +1377,28 @@ create table db1.xxx as select * from db2.xxx;
 #### 导入
 
 ```mysql
-load data local inpath '/liguodong/hive/data' into table employee;
+# 基本
+load data local inpath '/liguodong/hive/data' [overwrite]  into table test partition (country='china');
+
+# 升级
+ihql="use kankan_odl;delete from tbname where ds='${date}';
+	  load data local inpath  '/home/work/test.txt' into table tbname;"
+${HIVE} -e "{chql}"
 ```
 
 #### 导出
 
-```mysql
-insert overwrite local directory '/home/wyp/wyp' select * from wyp;
+- 命令行输出重定向
+
+```shell
+hql="use kankan_odl;select '${date}',fu3,fu2,count(*) from xmpcloud2 where ds='{date}' and length(fu4)=16 group by fu3,fu2;"
+${HIVE} -e "${hql}" > xmp_cloud_20161201
+```
+
+- 导出数据到本地文件(并指定字段分割方式)
+
+```sql
+insert overwrite local directory '/data/access_log/access_log.45491' row format delimited fields terminated by '\t' collection items terminated by ',' select * from xx
 ```
 
 ### 问题
@@ -1345,7 +1443,9 @@ where  t2.par_datetime in ('201405')
 
   [官方参考手册（注意官方函数参考）](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML#LanguageManualDML-Delete)
 
-  ​[hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
+  [hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
+
+  [hive map类型处理](http://blog.csdn.net/longshenlmj/article/details/41519453)
 
 - 函数
 
@@ -1374,3 +1474,7 @@ where  t2.par_datetime in ('201405')
 - 优化
 
   [Hive join数据倾斜解决方案](http://www.cnblogs.com/ggjucheng/archive/2013/01/03/2842821.html)
+
+- 备份
+
+  [load data指令小结（推荐）](https://www.cnblogs.com/tugeler/p/5133019.html)
