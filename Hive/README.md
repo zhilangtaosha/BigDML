@@ -19,13 +19,41 @@
 split('xxx_we2_23','_');  
 ```
 
+**int**
+
+```shell
+
+```
+
+
+
 ##### 复杂数据类型
 
 **array**
 
 ```mysql
+CREATE TABLE `array_test`(
+  `a` array<int>, 
+  `b` array<string>)
+ROW FORMAT SERDE 
+  'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' 
+WITH SERDEPROPERTIES ( 
+  'colelction.delim'=',', 
+  'field.delim'='\t', 
+  'serialization.format'='\t') 
+STORED AS INPUTFORMAT 
+  'org.apache.hadoop.mapred.TextInputFormat' 
+OUTPUTFORMAT 
+  'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+LOCATION
+  'hdfs://wh-ns/user/root/warehouse/xmp_data_mid.db/array_test';
+```
+
+
+
+```mysql
 # 求array的长度
-size(arrya)
+size(array)
 # # 如何将计算的数据直接在本行内使用呢(使用子查询的方式达到了结果)
 select split("wew_w23_ew0","_")[a.cnt-1] from (select size(split("wew_w23_ew0",'_')) as cnt)a;
 ```
@@ -56,6 +84,28 @@ load data local inpath "array.txt"  overwrite into table array_test partition(ds
 ```
 
 **map**
+
+```hive
+CREATE TABLE `map_test`(
+  `a` string, 
+  `b` map<string,string>, 
+  `c` string)
+ROW FORMAT SERDE 
+  'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' 
+WITH SERDEPROPERTIES ( 
+  'colelction.delim'=',', 
+  'field.delim'='\t', 
+  'mapkey.delim'=':', 
+  'serialization.format'='\t') 
+STORED AS INPUTFORMAT 
+  'org.apache.hadoop.mapred.TextInputFormat' 
+OUTPUTFORMAT 
+  'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+LOCATION
+  'hdfs://wh-ns/user/root/warehouse/xmp_data_mid.db/map_test';
+```
+
+
 
 ```mysql
 select map("key1","val1") from test.dual; 
@@ -269,7 +319,47 @@ stored as inputformat
 outputformat
   'org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat';
 ```
-#### 属性修改
+```mysql
+use xmp_data_mid;
+drop table if exists guid_action;
+create table if not exists guid_action(
+   guid string,
+   flag1 string,
+   flag2 string,
+   flag3 string,
+   num	int
+  )
+partitioned by (dyear string,dmon string)
+row format delimited
+fields terminated by '\t';
+```
+
+```mysql
+CREATE TABLE `odl_xxx_android_sdk_action_info`(
+  `appid` string, 
+  `interid` string, 
+  `eventid` string, 
+  `oprtime` string, 
+  `extdata` map<string,string>)
+PARTITIONED BY ( 
+  `day` string, 
+  `hour` string)
+ROW FORMAT SERDE 
+  'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' 
+WITH SERDEPROPERTIES ( 
+  'colelction.delim'=',', 
+  'field.delim'='\t', 
+  'mapkey.delim'='=', 
+  'serialization.format'='\t') 
+STORED AS INPUTFORMAT 
+  'org.apache.hadoop.mapred.SequenceFileInputFormat' 
+OUTPUTFORMAT 
+  'org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat'
+LOCATION
+  'hdfs://wh-ns/user/complat/warehouse/xxxx_sdk_odl.db/odl_xxxxx_android_sdk_action_info';
+```
+
+####  属性修改
 
 ##### 分区操作
 
@@ -325,6 +415,30 @@ alter table $tbl change col_name newcol_name string [after x][first];
 
 参数设置,修改，存储格式，分桶
 
+###### 表属性查看
+
+```shell
+#方法1：查看表的字段信息
+desc table_name;
+
+#方法2：查看表的字段信息及元数据存储路径
+desc extended table_name;
+
+#方法3：查看表的字段信息及元数据存储路径
+desc formatted table_name;
+
+#方法4：查看建表语句及其他详细信息的方法
+show create table table_name;
+```
+
+查看表容量大小
+
+```shell
+hadoop fs -ls xxxx |awk -F ' ' '{print $5}'|awk '{a+=$1}END{print a/(1024*1024*1024)}'  # 单位G
+```
+
+
+
 ###### 表重命名
 
 `use xmp_odl;alter table $tbl rename to new_tbl_name;`
@@ -344,11 +458,19 @@ alter table xmp_subproduct_install set SERDEPROPERTIES('serialization.format' = 
 
 ###### 删除表
 
-> 对外部表（存储在本地文件系统）和内部表（存储在MetaStore），删除语句相同
->
-> ` drop table if exists $tbl`
+对外部表（存储在本地文件系统）和内部表（存储在MetaStore），删除语句相同
 
-删除的时候会连分区和文件(内部表)一起删除
+```shell
+drop table if exists $tbl;
+```
+
+> 删除的时候会连分区和文件(内部表)一起删除
+
+删除表的部分分区
+
+```shell
+alter table dog drop partition(sex='boy');
+```
 
 ### 查询
 
@@ -358,7 +480,7 @@ alter table xmp_subproduct_install set SERDEPROPERTIES('serialization.format' = 
 
 ##### case when 
 
- case when ..  then  .. else  .. end as ..
+case when ..  then  .. else  .. end as ..
 
 两种用法
 
@@ -399,7 +521,20 @@ where size(fu5)!=0 and fu5[0]>=1023；
 例子2：
 
 ```mysql
-select case when (fu6>=0 and fu6<1024) then '[0,1)' when (fu6>=1024 and fu6<2048) then '[1,3)' when (fu6>=2048 and fu5<3072) then '[2,3)' when (fu6>=3072 and fu6<4096) then '[3,4)' when fu6>=4096 then '[4,)' else 'error' end as 'dur',if((lower(fu7) regexp "geforce") ,'yes','no'),count(*) from xmp_odl.xmpcloud2 where ds='20170618' and fu3='2341' and fu2 in (3,4,5) group by substr(fu6,1,1),if(( lower(fu7) regexp "geforce"),'yes','no') order by tsize;
+select 
+	case when (fu6>=0 and fu6<1024) then '[0,1)' 
+		when (fu6>=1024 and fu6<2048) then '[1,3)' 
+		when (fu6>=2048 and fu5<3072) then '[2,3)' 
+		when (fu6>=3072 and fu6<4096) then '[3,4)' 
+		when fu6>=4096 then '[4,)' 
+		else 'error' 
+		end as 'dur',
+	if((lower(fu7) regexp "geforce") ,'yes','no'),
+	count(*) 
+from xmp_odl.xmpcloud2 
+where ds='20170618' and fu3='2341' and fu2 in (3,4,5) 
+group by substr(fu6,1,1),if((lower(fu7) regexp "geforce"),'yes','no') 
+order by tsize limit 10;
 ```
 
 ##### coalesce
@@ -490,8 +625,9 @@ hive中的正则转义使用两个反斜杠， 即‘//’，
 ```mysql
 # 正则匹配
 select  'abc'  regexp '^[a-z]*$'   from test.dual;
-select  'http://v.xunlei.com'  regexp 'http://v.xunlei.com/?$'   from test.dual; //true
+select  'http://v.xunlei.com'  regexp 'http://v.xunlei.com/?$'   from test.dual; #true
 
+select 'www.eee23232.com' rlike 'www.(eee[0-9]{2,}|fff[0-9]{2,}).com' from test.dual;
 ```
 
 ##### 正则抽取
@@ -857,39 +993,72 @@ select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime
 
 ###### 分析函数
 
-分析函数主要用途：
+- [cume_dist](http://lxw1234.com/archives/2015/04/185.htm)
 
-- RANK
-- ROW_NUMBER
-- DENSE_RANK
-- CUME_DIST
-- PERCENT_RANK
-- NTILE
+小于等于当前值的行数/分组内的总行数
 
-分析函数一览：
-
-- cume_dist
+```mysql
+SELECT 
+  dept,
+  userid,
+  sal,
+  CUME_DIST() OVER(ORDER BY sal) AS rn1,
+  CUME_DIST() OVER(PARTITION BY dept ORDER BY sal) AS rn2 
+FROM 
+	xmp_data_mid.lxw1234;
+ 
+# 结果
+dept    userid   sal   rn1       rn2 
+-------------------------------------------
+d1      user1   1000    0.2     0.3333333333333333
+d1      user2   2000    0.4     0.6666666666666666
+d1      user3   3000    0.6     1.0
+d2      user4   4000    0.8     0.5
+d2      user5   5000    1.0     1.0
+ 
+#rn1: 没有partition,所有数据均为1组，总行数为5，
+#	  第一行：小于等于1000的行数为1，因此，1/5=0.2
+#	  第三行：小于等于3000的行数为3，因此，3/5=0.6
+#rn2: 按照部门分组，dpet=d1的行数为3,
+#     第二行：小于等于2000的行数为2，因此，2/3=0.6666666666666666
+```
 
 - row_number
 
-- percent_rank
+```mysql
+
+```
 
 - ntile
 
-  按层次查询
+按层次查询
+
+```shell
+
+```
 
 - percentile
 
-  返回分位点对应的记录值
+  返回分位点对应的记录值,注意使用前要先对要操作的列进行排序 
+
+```mysql
+#percentile要求输入的字段必须是int类型的，而percentile_approx则是数值类似型的都可以 .
+percentile_approx(col,array(0.05,0.5,0.95),9999) #或者
+percentile_approx(cast(col as double),array(0.05,0.5,0.95),9999)
+```
 
 - 累计函数
 
   计算一定范围内、一定值域内或者一段时间内的累积和以及移动平均值等
 
-- rank()/dense_rank()
+```mysql
+
+```
+
+- rank()/dense_rank()/percent_rank()
 
 ```mysql
-# 统计每组前N个
+# rank统计每组前N个
 use xmp_data_mid;
 SELECT A.ds, A.srctbl, A.srcdb,A.datasize
   FROM (SELECT T.ds,
@@ -902,9 +1071,47 @@ SELECT A.ds, A.srctbl, A.srcdb,A.datasize
  WHERE RK < 4;
 ```
 
-###### 混合函数
+```mysql
+# dense_rank
 
-混合函数一览：
+```
+
+
+```mysql
+# percent_rank
+# PERCENT_RANK 分组内当前行的RANK值-1/分组内总行数-1
+SELECT 
+ 	 dept,
+  	 userid,
+  	 sal,
+  	 PERCENT_RANK() OVER(ORDER BY sal) AS rn1,   --分组内
+ 	 RANK() OVER(ORDER BY sal) AS rn11,          --分组内RANK值
+ 	 SUM(1) OVER(PARTITION BY NULL) AS rn12,     --分组内总行数
+	PERCENT_RANK() OVER(PARTITION BY dept ORDER BY sal) AS rn2 
+FROM lxw1234;
+ 
+# 结果
+dept    userid   sal    rn1    rn11     rn12    rn2
+---------------------------------------------------
+d1      user1   1000    0.0     1       5       0.0
+d1      user2   2000    0.25    2       5       0.5
+d1      user3   3000    0.5     3       5       1.0
+d2      user4   4000    0.75    4       5       0.0
+d2      user5   5000    1.0     5       5       1.0
+ 
+rn1: rn1 = (rn11-1) / (rn12-1) 
+	   第一行,(1-1)/(5-1)=0/4=0
+	   第二行,(2-1)/(5-1)=1/4=0.25
+	   第四行,(4-1)/(5-1)=3/4=0.75
+rn2: 按照dept分组，
+     dept=d1的总行数为3
+     第一行，(1-1)/(3-1)=0
+     第三行，(3-1)/(3-1)=1
+```
+
+
+
+###### 混合函数
 
 - java_method(class,method [,arg1 [,arg2])
 - reflect(class,method [,arg1 [,arg2..]])
@@ -1099,7 +1306,8 @@ dict(b) #{1: 2, 3: 4, 5: 6}
 ##### 分析函数
 
 ```mysql
-# 待补充
+#计算数组中某个值出现的次数
+xl_array_count(array(b,b,a),string b); 
 ```
 
 #### Streaming操作
@@ -1154,7 +1362,9 @@ as install,channel,peerid,version, package_name, installtype,fip,ftime ;
 
 ### 积累
 
-hive注释`xxx.hql`
+#### 细节
+
+##### hive注释`xxx.hql`
 
 ```mysql
 --i'm comment(回车)
@@ -1167,6 +1377,15 @@ select count(*) from dual;
 > # 这是mysql的注释
 > select * from xx;
 > ```
+
+##### hive中文别名
+
+```mysql
+select xx as `中文别名` from db.tbl;
+# 注意其中文别名要用反双引号括起来，而不是单引号或者双引号
+```
+
+
 
 #### url解析
 
@@ -1280,6 +1499,8 @@ local hql="$MUDF;insert overwrite table xmp_mid.gcid_purefilename_filter partiti
 将列数据展开成行数据
 
 ```mysql
+select explode(array(1,2,3));
+
 # 展开array成每行一个
 select explode(b) from xmp_data_mid.array_test;
 
@@ -1441,11 +1662,17 @@ where  t2.par_datetime in ('201405')
 
 - 基础
 
+  [ApacheHive权威参考手册（推荐）](https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.3.4/bk_dataintegration/content/new-feature-insert-values-update-delete.html)
+
   [官方参考手册（注意官方函数参考）](https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML#LanguageManualDML-Delete)
 
   [hive array、map、struct使用](http://blog.csdn.net/yfkiss/article/details/7842014)
 
   [hive map类型处理](http://blog.csdn.net/longshenlmj/article/details/41519453)
+
+  [内部表和外部表的区别](http://blog.csdn.net/Dax1n/article/details/66979069)
+
+  [表信息查看](http://blog.csdn.net/babyfish13/article/details/52055927)
 
 - 函数
 
