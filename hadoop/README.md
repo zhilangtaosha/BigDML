@@ -46,3 +46,5 @@ hadoop fs –put <localsrc> <dst>  # 从本地系统拷贝文件到DFS
   [hadoop dfs命令大全](http://blog.csdn.net/wuwenxiang91322/article/details/22166423)
 
   [hdfs命令大全2](http://www.aboutyun.com/thread-5603-1-1.html)
+
+  [三种恢复 HDFS 上删除文件的方法](https://www.iteblog.com/archives/2321.html)
