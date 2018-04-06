@@ -1,4 +1,4 @@
-##HiveUDF编写指南
+##Hive-UDF编写指南
 [TOC]
 
 ### 基础

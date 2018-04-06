@@ -12,6 +12,23 @@
 
 ##### 基本数据类型
 
+| 数据类型      | 所占字节                                     | 开始支持版本          |
+| --------- | ---------------------------------------- | --------------- |
+| TINYINT   | 1byte，-128 ~ 127                         |                 |
+| SMALLINT  | 2byte，-32,768 ~ 32,767                   |                 |
+| INT       | 4byte,-2,147,483,648 ~ 2,147,483,647     |                 |
+| BIGINT    | 8byte,-9,223,372,036,854,775,808 ~ 9,223,372,036,854,775,807 |                 |
+| BOOLEAN   |                                          |                 |
+| FLOAT     | 4byte单精度                                 |                 |
+| DOUBLE    | 8byte双精度                                 |                 |
+| STRING    | 字符串                                      |                 |
+| BINARY    |                                          | 从Hive0.8.0开始支持  |
+| TIMESTAMP |                                          | 从Hive0.8.0开始支持  |
+| DECIMAL   |                                          | 从Hive0.11.0开始支持 |
+| CHAR      |                                          | 从Hive0.13.0开始支持 |
+| VARCHAR   |                                          | 从Hive0.12.0开始支持 |
+| DATE      |                                          | 从Hive0.12.0开始支持 |
+
 **string**
 
 ```mysql
@@ -19,7 +36,7 @@
 split('xxx_we2_23','_');  
 ```
 
-**int**
+**int/num**
 
 ```shell
 
@@ -54,6 +71,10 @@ LOCATION
 ```mysql
 # 求array的长度
 size(array)
+
+# 注意数组的索引下标是从0开始的
+ select array('1','2')[0]; # 结果1
+
 # # 如何将计算的数据直接在本行内使用呢(使用子查询的方式达到了结果)
 select split("wew_w23_ew0","_")[a.cnt-1] from (select size(split("wew_w23_ew0",'_')) as cnt)a;
 ```
@@ -64,6 +85,9 @@ select split("wew_w23_ew0","_")[a.cnt-1] from (select size(split("wew_w23_ew0",'
 > select a.sstr,split(a.sstr,"_")[a.cnt-1] from (select sstr,size(split(sstr,'_')) as cnt from xmp_data_mid.streaming_test limit 10)a;
 >
 > select a.gcid,split(a.filename,'\\\\')[a.cnt-1] from (select gcid,filename,size(split(filename,'\\\\')) as cnt from xmp_mid.gcid_filename_filter where gcid!='' limit 100)a;
+>
+> # 两次反转(分割得到的数组取最后一个）
+> select reverse(split(reverse('a1,b1,c1,d2'),',')[0]);
 > ```
 >
 > 注意在shell中要换成8个（在hql脚本中和在hive的命令行中保持一样，都是4个），如下：
@@ -90,8 +114,6 @@ load data local inpath "array.txt"  overwrite into table array_test partition(ds
 # 求数组中最大的元素
 # 判断一个数是否在数组中
 ```
-
-
 
 **map**
 
@@ -216,6 +238,8 @@ load data local inpath "group.txt"  overwrite into table group_test;
 
 ##### 数据类型转换
 
+![隐式数据类型转换](http://tuling56.site/imgbed/2018-03-27_112329.png)
+
 ###### 字符串类型
 
 字符串转整型
@@ -240,7 +264,17 @@ from_unixtime(ts,''yyyyMMdd HH:mm:ss')
 
 ###### 整型
 
+整型转字符串
 
+```mysql
+cast(xxint as string);
+```
+
+进制转换
+
+```mysql
+
+```
 
 #### 属性设置
 
@@ -535,9 +569,27 @@ Dropped the partition dtask=meizu/dyear=2017/dmon=201706
 ###### 修改分区
 
 ```sql
-use xmp_odl;alter table $tbl partition(ds='20160808',hour='00') set location "/user/kankan/warehouse/..."
+# 修改分区位置
+alter table $tbl partition(ds='20160808',hour='00') set location "/user/kankan/warehouse/..."
 
-use xmp_odl;alter table $tbl partition(ds='20160808',hour='00') rename to partition(ds='20160808',hour='01')
+# 修改分区名
+alter table $tbl partition(ds='20160808',hour='00') rename to partition(ds='20160808',hour='01')
+```
+
+==分区综合例子：==
+
+动态分区：
+
+```mysql
+alter table xxx drop if exists partition (ds='$date');
+insert overwrite table xxx partition(ds='${date}',appid,servid)
+select 
+	,other
+	,appid
+	,serverid
+from 
+	vvvv;
+# 运行的时候会根据appid、serverid的不同值自动进入相应的分区中
 ```
 
 ##### 列操作
@@ -670,6 +722,8 @@ The COALESCE function returns the fist not NULL value from the list of values. I
 
 ```mysql
 select COALESCE(NULL,1,"ww") from test.dual;
+# coalesce能否返回数组中第一个非NULL的？
+
 ```
 
 > 如何返回数组中的第一个非NULL元素，配合collect_list使用？取聚合后第一个非空元素
@@ -745,6 +799,12 @@ hive中的正则转义使用两个反斜杠， 即‘//’，
 | (?i) | 这个标志能让表达式忽略大小写进行匹配                       |      |
 | (?x) | 在这种模式下，匹配时会忽略(正则表达式里的)空格字符，例如空格，tab，回车之类 |      |
 
+例子：
+
+```shell
+vsw rlike '^.*(share_result|zan|discuss_result|follow_click_result|transmit_result)$';
+```
+
 ##### 正则匹配
 
 ```mysql
@@ -778,14 +838,18 @@ select regexp_extract('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_push
 > select regexp_extract('x=123abcde&x=18456abc&x=2&y=3&x=4','x=([0-9]+)([a-z]+)',2);
 > ```
 >
-> 
 
 例子：
 
 ```mysql
 # 提取中文字字符
 select regexp_extract(results,'([\\u4e00-\\u9fa5]+)',1) from vip_mid.vip_block_detail_djq_d limit 3;
-select regexp_extract('dui你ada 大坏2232！ 蛋','([\\u4e00-\\u9fa5]+)',1) from test.dual; #结果你
+select regexp_extract('dui你ada 大坏2232！ 蛋','([\\u4e00-\\u9fa5]+)',1) from test.dual; #你
+
+
+# 提取文件后缀(在shell中\\要变成\\\\)
+select lower(regexp_extract(xl_urldecode(xl_urldecode(filename)),'(.*)\\.(.*)',2)); -- rmvb
+select regexp_extract('zhang.mei.nv.rmvb','(.?)\\.(.*)',2);  -- mei.nv.rmvb  (采用了非贪婪模式)
 ```
 
 ##### 正则替换
@@ -899,7 +963,7 @@ right join(右连接)：返回包括右表中的所有记录和左表中连接�
 
 ##### inner join
 
-inner join(等值连接)：只返回两个表中连接字段相等的行；
+inner join(等值连接)：只返回两个表中连接字段相等的行, `inner join` 有时简写为`join`
 
 ```mysql
 SELECT
@@ -908,7 +972,8 @@ SELECT
 	orders.orderno
 FROM
 	persons
-INNER JOIN orders ON persons.id_p = orders.id_p
+INNER JOIN orders 
+ON persons.id_p = orders.id_p
 WHERE
 	perssons.lastname LIKE '%小狗%'
 ORDER BY
@@ -939,12 +1004,25 @@ on a.pid=b.peerid;
 连接小表的时候，在内存中操作，省去reduce过程,和common join存在着差别
 
 ```mysql
-设置参数：
+#设置参数：
 set hive.auto.convert.join=true;
 set hive.mapjoin.smalltable.filesize=250000
 ```
 
-##### 分组
+使用样例：
+
+```mysql
+select /*+ MAPJOIN(A) */ 字段
+from 小表 A
+right outer join 大表 B
+on A.XX=B.XX
+```
+
+
+
+#### 分组
+
+##### grouping sets
 
 ```mysql
 group by xx
@@ -999,6 +1077,14 @@ grouping sets ((),(xx,xxx,vvv),(xx,xx))
 | binary                       | unbase64(string str)                     | 将base64字符串转换为二进制                         |
 | string                       | upper(string A) ucase(string A)          | 返回字符串A的大写形式                              |
 
+额外函数
+
+| 函数             | 用法                           | 备注   |
+| -------------- | ---------------------------- | ---- |
+| xl_md5('aacw') | Returns the md5 value of str |      |
+|                |                              |      |
+|                |                              |      |
+
 一般函数
 
 ```mysql
@@ -1032,18 +1118,21 @@ grouping sets ((),(xx,xxx,vvv),(xx,xx))
 ```mysql
 # 一般字符
 select split('a,b,c,d',',')[0] from test.dual;
+
 # 特殊字符
-split('192.168.0.1','\\.') from test.dual;
-split('192;168;0;1','\\;') from test.dual;
-# 分号分隔符的处理(在语句中)
-split(xl_urldecode(xl_urldecode(extdata_map['contentlist'])),'\073');
+select split('192.168.0.1','\\.') from test.dual; -- 也可以是 split('192.168.0.1','\\\.') 
+-- 在shell中split(cv,'\\\.')或者split(cv,'\\\\.'),经转化后是split(cv,'\\.')
+
+# 分号分隔符的处理
+select split(xl_urldecode(xl_urldecode(extdata_map['contentlist'])),'\073');　-- 在语句中xx.hql可用
+select split('192;168;0;1','\\;') from test.dual; -- 在命令行中不可用
 
 # 分割取最后一个
 select reverse(split(reverse('a1,b1,c1,d2'),',')[0]);
 
 # 在shell脚本或者“”内
 当然当split包含在 "" 之中时 需要加4个\，如 
-hive -e "....  split('192.168.0.1','\\\\.') ... "  不然得到的值是null
+hive -e "select split('192.168.0.1','\\\\.')"  不然得到的值是null
 
 
 # 字符串分割后得到数组中的最后一个(主要用来提取全路径中的文件名)
@@ -1102,6 +1191,53 @@ select unhex(regexp_replace('%E4%B8%AD%E5%9B%BD','%','')) from test.dual;
 regexp_extract(string subject, string pattern, int index)
 select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 ```
+
+##### 数字
+
+函数一览
+
+| **Return Type** | **Name (Signature)**                     | **Description**                          |
+| --------------- | ---------------------------------------- | ---------------------------------------- |
+| DOUBLE          | round(DOUBLE a)                          | Returns the rounded `BIGINT` value of `a`.**返回对a四舍五入的BIGINT值** |
+| DOUBLE          | round(DOUBLE a, INT d)                   | Returns `a` rounded to `d` decimal places.**返回DOUBLE型d的保留n位小数的DOUBLW型的近似值** |
+| DOUBLE          | bround(DOUBLE a)                         | Returns the rounded BIGINT value of `a` using HALF_EVEN rounding mode (as of [Hive 1.3.0, 2.0.0](https://issues.apache.org/jira/browse/HIVE-11103)). Also known as Gaussian rounding or bankers' rounding. Example: bround(2.5) = 2, bround(3.5) = 4.**银行家舍入法（1~4：舍，6~9：进，5->前位数是偶：舍，5->前位数是奇：进）** |
+| DOUBLE          | bround(DOUBLE a, INT d)                  | Returns `a` rounded to `d` decimal places using HALF_EVEN rounding mode (as of [Hive 1.3.0, 2.0.0](https://issues.apache.org/jira/browse/HIVE-11103)). Example: bround(8.25, 1) = 8.2, bround(8.35, 1) = 8.4.**银行家舍入法,保留d位小数** |
+| BIGINT          | floor(DOUBLE a)                          | Returns the maximum `BIGINT` value that is equal to or less than `a`**向下取整，最数轴上最接近要求的值的左边的值  如：6.10->6   -3.4->-4** |
+| BIGINT          | ceil(DOUBLE a), ceiling(DOUBLE a)        | Returns the minimum BIGINT value that is equal to or greater than `a`.**求其不小于小给定实数的最小整数如：ceil(6) = ceil(6.1)= ceil(6.9) = 6** |
+| DOUBLE          | rand(), rand(INT seed)                   | Returns a random number (that changes from row to row) that is distributed uniformly from 0 to 1. Specifying the seed will make sure the generated random number sequence is deterministic.**每行返回一个DOUBLE型随机数seed是随机因子** |
+| DOUBLE          | exp(DOUBLE a), exp(DECIMAL a)            | Returns `ea` where `e` is the base of the natural logarithm. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**返回e的a幂次方， a可为小数** |
+| DOUBLE          | ln(DOUBLE a), ln(DECIMAL a)              | Returns the natural logarithm of the argument `a`. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**以自然数为底d的对数，a可为小数** |
+| DOUBLE          | log10(DOUBLE a), log10(DECIMAL a)        | Returns the base-10 logarithm of the argument `a`. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**以10为底d的对数，a可为小数** |
+| DOUBLE          | log2(DOUBLE a), log2(DECIMAL a)          | Returns the base-2 logarithm of the argument `a`. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**以2为底数d的对数，a可为小数** |
+| DOUBLE          | log(DOUBLE base, DOUBLE a)log(DECIMAL base, DECIMAL a) | Returns the base-`base` logarithm of the argument `a`. Decimal versions added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**以base为底的对数，base 与 a都是DOUBLE类型** |
+| DOUBLE          | pow(DOUBLE a, DOUBLE p), power(DOUBLE a, DOUBLE p) | Returns `ap`.**计算a的p次幂**                 |
+| DOUBLE          | sqrt(DOUBLE a), sqrt(DECIMAL a)          | Returns the square root of `a`. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**计算a的平方根** |
+| STRING          | bin(BIGINT a)                            | Returns the number in binary format (see [http://dev.mysql.com/doc/refman/5.0/en/string-functions.html#function_bin](http://dev.mysql.com/doc/refman/5.0/en/string-functions.html#function_bin)).**计算二进制a的STRING类型，a为BIGINT类型** |
+| STRING          | hex(BIGINT a) hex(STRING a) hex(BINARY a) | If the argument is an `INT` or `binary`, `hex` returns the number as a `STRING` in hexadecimal format. Otherwise if the number is a `STRING`, it converts each character into its hexadecimal representation and returns the resulting `STRING`. (See[http://dev.mysql.com/doc/refman/5.0/en/string-functions.html#function_hex](http://dev.mysql.com/doc/refman/5.0/en/string-functions.html#function_hex), `BINARY` version as of Hive [0.12.0](https://issues.apache.org/jira/browse/HIVE-2482).)**计算十六进制a的STRING类型，如果a为STRING类型就转换成字符相对应的十六进制** |
+| BINARY          | unhex(STRING a)                          | Inverse of hex. Interprets each pair of characters as a hexadecimal number and converts to the byte representation of the number. (`BINARY` version as of Hive [0.12.0](https://issues.apache.org/jira/browse/HIVE-2482), used to return a string.)**hex的逆方法** |
+| STRING          | conv(BIGINT num, INT from_base, INT to_base), conv(STRING num, INT from_base, INT to_base) | Converts a number from a given base to another (see [http://dev.mysql.com/doc/refman/5.0/en/mathematical-functions.html#function_conv](http://dev.mysql.com/doc/refman/5.0/en/mathematical-functions.html#function_conv)).**将GIGINT/STRING类型的num从from_base进制转换成to_base进制** |
+| DOUBLE          | abs(DOUBLE a)                            | Returns the absolute value.**计算a的绝对值**   |
+| INT or DOUBLE   | pmod(INT a, INT b), pmod(DOUBLE a, DOUBLE b) | Returns the positive value of `a mod b`.**a对b取模** |
+| DOUBLE          | sin(DOUBLE a), sin(DECIMAL a)            | Returns the sine of `a` (`a` is in radians). Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**求a的正弦值** |
+| DOUBLE          | asin(DOUBLE a), asin(DECIMAL a)          | Returns the arc sin of `a` if -1<=a<=1 or NULL otherwise. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**求d的反正弦值** |
+| DOUBLE          | cos(DOUBLE a), cos(DECIMAL a)            | Returns the cosine of `a` (`a` is in radians). Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**求余弦值** |
+| DOUBLE          | acos(DOUBLE a), acos(DECIMAL a)          | Returns the arccosine of `a` if -1<=a<=1 or NULL otherwise. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**求反余弦值** |
+| DOUBLE          | tan(DOUBLE a), tan(DECIMAL a)            | Returns the tangent of `a` (`a` is in radians). Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**求正切值** |
+| DOUBLE          | atan(DOUBLE a), atan(DECIMAL a)          | Returns the arctangent of `a`. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**求反正切值** |
+| DOUBLE          | degrees(DOUBLE a), degrees(DECIMAL a)    | Converts value of `a` from radians to degrees. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6385).**奖弧度值转换角度值** |
+| DOUBLE          | radians(DOUBLE a), radians(DOUBLE a)     | Converts value of `a` from degrees to radians. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6327).**将角度值转换成弧度值** |
+| INT or DOUBLE   | positive(INT a), positive(DOUBLE a)      | Returns `a`.**返回a**                      |
+| INT or DOUBLE   | negative(INT a), negative(DOUBLE a)      | Returns `-a`.**返回a的相反数**                 |
+| DOUBLE or INT   | sign(DOUBLE a), sign(DECIMAL a)          | Returns the sign of `a` as '1.0' (if `a` is positive) or '-1.0' (if `a` is negative), '0.0' otherwise. The decimal version returns INT instead of DOUBLE. Decimal version added in [Hive 0.13.0](https://issues.apache.org/jira/browse/HIVE-6246).**如果a是正数则返回1.0，是负数则返回-1.0，否则返回0.0** |
+| DOUBLE          | e()                                      | Returns the value of `e`.**数学常数e**       |
+| DOUBLE          | pi()                                     | Returns the value of `pi`.**数学常数pi**     |
+| BIGINT          | factorial(INT a)                         | Returns the factorial of `a` (as of Hive [1.2.0](https://issues.apache.org/jira/browse/HIVE-9857)). Valid `a` is [0..20].**求a的阶乘** |
+| DOUBLE          | cbrt(DOUBLE a)                           | Returns the cube root of `a` double value (as of Hive [1.2.0](https://issues.apache.org/jira/browse/HIVE-9858)).**求a的立方根** |
+| INT BIGINT      | shiftleft(TINYINT\|SMALLINT\|INT a, INT b)shiftleft(BIGINT a, INT b) | Bitwise left shift (as of Hive [1.2.0](https://issues.apache.org/jira/browse/HIVE-9859)). Shifts `a` `b` positions to the left.Returns int for tinyint, smallint and int `a`. Returns bigint for bigint `a`.**按位左移** |
+| INTBIGINT       | shiftright(TINYINT\|SMALLINT\|INT a, INTb)shiftright(BIGINT a, INT b) | Bitwise right shift (as of Hive [1.2.0](https://issues.apache.org/jira/browse/HIVE-9859)). Shifts `a` `b` positions to the right.Returns int for tinyint, smallint and int `a`. Returns bigint for bigint `a`.**按拉右移** |
+| INTBIGINT       | shiftrightunsigned(TINYINT\|SMALLINT\|INTa, INT b),shiftrightunsigned(BIGINT a, INT b) | Bitwise unsigned right shift (as of Hive [1.2.0](https://issues.apache.org/jira/browse/HIVE-9859)). Shifts `a` `b` positions to the right.Returns int for tinyint, smallint and int `a`. Returns bigint for bigint `a`.**无符号按位右移（<<<）** |
+| T               | greatest(T v1, T v2, ...)                | Returns the greatest value of the list of values (as of Hive [1.1.0](https://issues.apache.org/jira/browse/HIVE-9402)). Fixed to return NULL when one or more arguments are NULL, and strict type restriction relaxed, consistent with ">" operator (as of Hive [2.0.0](https://issues.apache.org/jira/browse/HIVE-12082)).**求最大值** |
+| T               | least(T v1, T v2, ...)                   | Returns the least value of the list of values (as of Hive [1.1.0](https://issues.apache.org/jira/browse/HIVE-9402)). Fixed to return NULL when one or more arguments are NULL, and strict type restriction relaxed, consistent with "<" operator (as of Hive [2.0.0](https://issues.apache.org/jira/browse/HIVE-12082)).**求最小值** |
 
 ##### 日期时间
 
@@ -1200,6 +1336,32 @@ from
 group by ds,srctbl,srcdb
 grouping sets ((),(ds,srctbl),(ds,srcdb));
 ```
+
+```shell
+xmp_data_mid.group_test;
+ds				srctbl	srcdb			hour 	datasize
+2016/12/26      zkusr   pgv3_split_c2   23      0
+2016/12/26      zkusr   pgv3_split_c2   12      0
+```
+
+
+
+> 注:
+>
+> - grouping sets里的字段不能有计算字段，但可以有extdata['xx']这样的
+>
+> ```mysql
+> select ds,
+> 	nvl(srctbl,'total'),
+> 	nvl(srcdb,'total'),
+> 	sum(datasize)
+> from 
+> 	xmp_data_mid.group_test
+> group by ds,srctbl,srcdb
+> grouping sets ((),(ds,srctbl),(ds,srcdb));
+> ```
+>
+> 
 
 ###### cube
 
@@ -1384,8 +1546,8 @@ d2      user5   5000    1.0     1.0
 
 ###### row_number
 
-ROW_NUMBER() –从1开始，按照顺序，生成分组内记录的序列
-–比如，按照pv降序排列，生成分组内每天的pv名次
+ROW_NUMBER() 从1开始，按照顺序，生成分组内记录的序列
+比如，按照pv降序排列，生成分组内每天的pv名次
 
 ```mysql
 SELECT 
@@ -1393,7 +1555,7 @@ SELECT
   createtime,
   pv,
   ROW_NUMBER() OVER(PARTITION BY cookieid ORDER BY pv desc) AS rn 
-FROM high_test;
+FROM highfun_test;
 
 # 结果
 cookieid day           pv       rn
@@ -1414,7 +1576,9 @@ cookie2 2015-04-11      3       6
 cookie2 2015-04-10      2       7
 ```
 
-###### ntile
+row number可以用来进行[分组去重](https://blog.csdn.net/yimingsilence/article/details/70140877)
+
+###### [ntile](http://lxw1234.com/archives/2015/04/181.htm)
 
 NTILE(n)，用于将分组数据按照顺序切分成n片，返回当前切片值
 
@@ -1431,7 +1595,7 @@ FROM
 ORDER BY cookieid,createtime;
 ```
 
-###### percentile
+###### [percentile](http://lxw1234.com/archives/2015/04/181.htm)
 
   返回分位点对应的记录值,注意使用前要先对要操作的列进行排序 
 
@@ -1441,7 +1605,7 @@ percentile_approx(col,array(0.05,0.5,0.95),9999) #或者
 percentile_approx(cast(col as double),array(0.05,0.5,0.95),9999)
 ```
 
-######   xx__rank()
+######   xx\_rank()
 
 > rank系列：rank()/dense_rank()/percent_rank()
 >
@@ -1469,7 +1633,16 @@ dense_rank()
 
 ```mysql
 # dense_rank
-//待补充
+SELECT 
+  cookieid,
+  createtime,
+  pv,
+  RANK() OVER(PARTITION BY cookieid ORDER BY pv desc) AS rn1,
+  DENSE_RANK() OVER(PARTITION BY cookieid ORDER BY pv desc) AS rn2,
+  ROW_NUMBER() OVER(PARTITION BY cookieid ORDER BY pv DESC) AS rn3 
+FROM 
+	xmp_data_mid.highfun_test
+WHERE cookieid = 'cookie1';
 ```
 
 percent_rank()
@@ -1550,8 +1723,19 @@ select find_in_set('cd','ef,ab,de'); -- 0
 数组元素拼接
 
 ```shell
-# 将数组元素拼接成字符串
+# 将数组元素拼接成字符串（数组元素是字符串）
 select concat_ws('_',array('b','b','a'));
+
+# 若数组元素不是字符串(则报错)
+select concat_ws(',',array(2,NULL,1));
+```
+
+> 数组中的每个元素转换成字符串
+
+数组排序
+
+```mysql
+select sort_array(array(2,NULL,1)); # 结果[null,1,2]
 ```
 
 
@@ -1567,6 +1751,14 @@ select concat_ws('_',array('b','b','a'));
 | map_keys   | map_keys(xx)   | 返回map所有key   |
 | map_values | map_values(yy) | 返回map所有value |
 |            |                |              |
+
+额外函数：
+
+| 函数名                 | 用法                                       | 备注            |
+| ------------------- | ---------------------------------------- | ------------- |
+| xl_map_get(map,key) | select nvl(m2["k1"],''),nvl(xl_map_get(m2,"k1"),'') from high_test; | 获取map中指定的key值 |
+| xl_map_tag(v,map()) | select xl_map_tag('push_new',map('^1ps232','1','.\*push.\*','2')); --2 |               |
+| xl_str_tag(x,x)     | 还有问题待升级                                  |               |
 
 > ```mysql
 > # 查看key中是否含有某项
@@ -1787,7 +1979,9 @@ as install,channel,peerid,version, package_name, installtype,fip,ftime ;
 
 #### 细节
 
-##### hive注释`xxx.hql`
+##### 注释
+
+hql脚本注释
 
 ```mysql
 # 单行注释
@@ -1805,13 +1999,36 @@ select count(*) from dual;
 > select * from xx;
 > ```
 
-##### hive中文别名
+##### 中文别名
 
 ```mysql
 select xx as `中文别名` from db.tbl;
 # 注意其中文别名要用反双引号括起来，而不是单引号或者双引号
 
 对于英文别名，直接写成 select xx as aliasxx,其中aliasxx不要再加引号
+```
+
+##### order by 字段
+
+order by 是最后执行的，若对列(包含计算列)没有起别名，则\_c0,\_c1,\_c2分别对应相应的列
+
+```mysql
+use shoulei_bdl;
+select 
+    ds,
+    guid,
+    eventname,
+    attribute1,
+    from_unixtime(cast(ts as int),'yyyyMMdd HH:mm:ss') as t # 此处是否起别名对结果无影响
+from 
+   vvvvv
+where 
+    ds='20180327' and appid='48' and cv rlike '^5.32'
+    and eventname!='ios_advertise' 
+order by 
+    ds,
+    guid,
+    t;  # 此处的t不能换成from_unixtime(cast(ts as int),'yyyyMMdd HH:mm:ss')，也不能换成ts
 ```
 
 
@@ -1883,17 +2100,56 @@ select concat(parse_url('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_pu
 
 ipstr->int
 
-```
-
+```mysql
+#类似mysql:select inet_aton('59.54.109.78');
 ```
 
 int->ipstr
 
 > 暂时没有查找到关于ip的函数，需要自定义实现
 
+```mysql
+# 类似mysql:select inet_ntoa(993422670);
 ```
 
+例子
+
+```mysql
+# 解析供应商（名称）
+nvl(xl_geoip_parse(xl_inet_ntoa(xl_htonl(cast(serverinfo[1] as bigint))), 'ISP')['isp'],'unknow') as isp
+
+# 解析省份（名称）
+nvl(xl_geoip_parse(xl_inet_ntoa(xl_htonl(cast(serverinfo[1] as bigint))),'PROVINCE')['prov'],'unknow') as province
+
+#　解析市（名称）
+nvl(xl_geoip_parse(xl_inet_ntoa(xl_htonl(cast(serverinfo[1] as bigint))),'CITY')['city'],'unknow') as city
 ```
+
+> xl_geoip_parse
+>
+> ```shell
+> 第一个参数ip（字符串，例如：59.54.109.78）
+>
+> 第二个参数可选值：COUNTRY，COUNTRY_CODE，CITY，CITY_CODE，ISP，ISP_CODE，PROVINCE， PROVINCE_CODE，ALL，ALL_CODE 
+> 返回值为map结构，当参数为ALL时，返回值如下
+> {"prov":"广东省","isp":"电信","city":"深圳","country":"中国"}
+>
+> 例子（注意返回的是字典）：
+> hive> select xl_geoip_parse(xl_inet_ntoa(xl_htonl(1315780155)),'city');
+> {"city":"九江市"}
+> ```
+>
+> xl_inet_ntoa
+>
+> ```shell
+> 整型ip转字符串
+> ```
+>
+> xl_htonl
+>
+> ```shell
+> 大端ip数值转小端
+> ```
 
 #### 文件名处理
 
@@ -1921,9 +2177,25 @@ local hql="$MUDF;insert overwrite table xmp_mid.gcid_purefilename_filter partiti
 > 关键词过滤的核心是如何批量处理关键词的问题
 >
 
-#### 行列拆分
+#### 行列转换
 
-##### explode
+##### 分列
+
+| ID    | type_flag | tags                                     |
+| ----- | --------- | ---------------------------------------- |
+| 10001 | 3         | 11\_20_30,11\_22\_34,12\_23\_30,13\_24\_36 |
+| 10002 | 2         | 11\_20,11\_22,12\_23,13\_24              |
+| 10003 | 1         | 11,12                                    |
+
+```mysql
+# 参考列转行部分的例子
+```
+
+##### 列转行
+
+包含列拆分
+
+###### explode
 
 将列数据展开成行数据
 
@@ -1947,7 +2219,7 @@ select explode(b) as (k,v) from xmp_data_mid.map_test;
 >
 > 解决办法参见下面的lateral view
 
-##### lateral view
+###### lateral view
 
 将拆分的数据作为新列数据，就像独立的列一样
 
@@ -1966,7 +2238,101 @@ select id,k,v from xmp_data_mid.high_test lateral view explode(m1)be as k,v limi
 select k,sum(v) from xmp_data_mid.high_test lateral view explode(m1)be as k,v group by k;
 ```
 
+[**例子**](https://blog.csdn.net/dreamingfish2011/article/details/51250641)
 
+列转行同时存在分列的情况
+
+源表：
+
+| ID    | type_flag | tags                                     |
+| ----- | --------- | ---------------------------------------- |
+| 10001 | 3         | 11\_20_30,11\_22\_34,12\_23\_30,13\_24\_36 |
+| 10002 | 2         | 11\_20,11\_22,12\_23,13\_24              |
+| 10003 | 1         | 11,12                                    |
+
+需要转化成的结果表样子如下：
+
+| ID    | type_flag | tag1 | tag2 | tag3 |
+| ----- | --------- | ---- | ---- | ---- |
+| 10001 | 3         | 11   | 20   | 30   |
+| 10001 | 3         | 11   | 22   | 34   |
+| 10001 | 3         | 12   | 23   | 30   |
+| 10001 | 3         | 13   | 24   | 36   |
+| 10002 | 2         | 11   | 20   |      |
+| 10002 | 2         | 11   | 22   |      |
+| 10002 | 2         | 12   | 23   |      |
+| 10002 | 2         | 13   | 24   |      |
+| 10003 | 1         | 11   |      |      |
+| 10003 | 1         | 12   |      |      |
+
+实现:
+
+```mysql
+-- step2:再分列
+select
+	id,
+	type_flag,
+    (case when type_flag in(1, 2, 3) then tag[0] else '' end) as tag1,
+    (case when type_flag in(2, 3) then tag[1] else '' end) as tag2,
+    (case when type_flag in(3) then tag[2] else '' end) as tag3
+from
+(-- step1:先列转行
+select 
+	id,
+	type_flag,
+	split(tags,'_') as atag 
+from 
+	high_test 
+lateral view explode(tags)t1 as tag0
+)a;
+```
+
+> 该方法需要先求出最大的type_flag,然后才能决定分多少列
+
+##### 行转列
+
+###### [group_concat](https://blog.csdn.net/gdp5211314/article/details/8794404)
+
+```mysql
+# 列出相等
+SELECT group_concat(town) FROM `players` group by town;
+
+#　列出所有
+SELECT group_concat(town)　FROM players;
+```
+
+> 这个函数目前似乎没有实现，在mysql中也有，替代解决方案是下午的collect_set[list]
+>
+> ```mysql
+> select s1,concat_ws('|',collect_set(s3)) from high_test group by s1;
+> ```
+
+###### collect_set[list]
+
+```mysql
+select s1,collect_set(s3) from high_test group by s1;
+```
+
+###### group by sum(if)
+
+```mysql
+select s1,
+	if(a1[0]>'d','>d','<d') as flag1,
+	sum(if(n1>0,1,0)) as bg0,
+	sum(if(n1>2,1,0)) as bg1 
+from 
+	xmp_data_mid.high_test 
+group by s1,
+	if(a1[0]>'d','>d','<d');
+```
+
+> 这个函数针对数字型
+
+**例子**
+
+```mysql
+
+```
 
 ### 优化
 
@@ -2020,9 +2386,35 @@ select a.guid,a.eventid from xlj_test_event a left semi join xlj_test_user b on 
 select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active b  on (a.pid=b.pid) where a.minds=20160101 and b.ds=20160109 limit 10;
 ```
 
+#### mapjoin
+
+​	mapjoin会把小表全部读入内存中，在map阶段直接拿另外一个表的数据和内存中表的数据做匹配，而普通的equality join则是类似于mapreduce中的filejoin,需要先分组，然后在reduce端进行连接，由于mapjoin是在map是进行了join操作，省去了reduce的运行，效率也会高很多
+
+​	mapjoin还有一个很大的好处是能够进行不等连接的join操作，如果将不等条件写在where中，那么mapreduce过程中会进行笛卡尔积，运行效率特别低，这是由于equality join （不等值join操作有 >、<、like等如：a.x < b.y 或者 a.x like b.y） 需要在reduce端进行不等值判断，map端只能过滤掉where中等值连接时候的条件，如果使用mapjoin操作，在map的过程中就完成了不等值的join操作，效率会高很多。
+
+```mysql
+select A.a ,A.b from A join B where A.a>B.a
+```
+
+##### 应用场景
+
+- 关联操作中有一张表非常小
+- 不等值的连接操作
+
+例子：
+
+```mysql
+select t1.a,t1.b from table t1 join table2 t2  on ( t1.a=t2.a and t1.datecol=20110802)
+
+# 改进后
+select /*+ mapjoin(t1)*/ t1.a,t1.b from table t1 join table2 t2  on ( t1.a=t2.a and f.ftime=20110802) 
+```
+
+> 该语句中t2表有30亿行记录，t1表只有100行记录，而且t2表中数据倾斜特别严重，有一个key上有15亿行记录，在运行过程中特别的慢，而且在reduece的过程中遇有内存不够而报错
+
 #### 设置参数
 
-##### 参数设置一览
+##### 参数一览
 
 | 设置                                       | 意义   | 备注   |
 | ---------------------------------------- | ---- | ---- |
@@ -2191,11 +2583,15 @@ where  t2.par_datetime in ('201405')
 
   [lateral view explode用法](http://blog.csdn.net/bitcarmanlee/article/details/51926530)
 
+  [hive 高级数据类型使用之array（含横表转纵表)](https://blog.csdn.net/dreamingfish2011/article/details/51250641)
+
 - 优化
 
   [hive开启本地模式](http://blog.csdn.net/shenxiaoming77/article/details/43197441)
 
   [Hive join数据倾斜解决方案](http://www.cnblogs.com/ggjucheng/archive/2013/01/03/2842821.html)
+
+  [hive mapjoin使用和个人理解](https://blog.csdn.net/liuj2511981/article/details/8616730)
 
 - 备份
 
