@@ -577,6 +577,12 @@ insert into  table xxx partition(ds=xx);
 
 > 使用insert into插入的时候需要指定所有的分区，不然提示失败
 
+[动态分区和静态分区](http://www.aboutyun.com/home.php?mod=space&uid=1415&do=blog&quickforward=1&id=3093)
+
+```
+#动态分区和静分区的区别
+```
+
 ###### 删除分区
 
 ```mysql
@@ -622,25 +628,39 @@ from
 # 运行的时候会根据appid、serverid的不同值自动进入相应的分区中
 ```
 
-##### 列操作
+##### 字段操作
 
 ###### 添加列
 
 ```mysql
-use xmp_odl;
-alter table $tbl add columns(col_name string);
+alter table $tbl add columns(col_name string comment 'this is comment');
+```
+
+> 注意hive不支持直接添加列到指定位置，解决方案是先添加列，然后再修改列到指定的位置
+
+添加列并设置为分区列：
+
+```mysql
+# 暂时没有找到解决的办法
 ```
 
 ###### 修改列
 
 ```mysql
-use xmp_odl;
 alter table $tbl change col_name newcol_name string [after x][first];
 ```
 
 ###### 删除列
 
-`use xmp_odl;alter table $tbl drop?`
+```mysql
+alter table $tbl drop [column] column_name;
+```
+
+###### 替换列
+
+```mysql
+alter table name replace columns (col_spec[, col_spec ...]);
+```
 
 ##### 表操作
 
@@ -648,7 +668,9 @@ alter table $tbl change col_name newcol_name string [after x][first];
 
 ###### 表重命名
 
-`use xmp_odl;alter table $tbl rename to new_tbl_name;`
+````mysql
+use xmp_odl;alter table $tbl rename to new_tbl_name;
+````
 
 ###### 修改表存储属性
 
@@ -657,6 +679,7 @@ alter table $tbl change col_name newcol_name string [after x][first];
 alter TABLE  pusherdc   SET FILEFORMAT
 INPUTFORMAT "org.apache.hadoop.mapred.SequenceFileInputFormat"
 OUTPUTFORMAT "org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat";
+
 
 # 修改字段分割方式
 alter table xmp_subproduct_install set SERDEPROPERTIES('field.delim' = '\u0001');
@@ -1285,6 +1308,9 @@ select unix_timestamp('20111207 13:01:03','yyyyMMdd HH:mm:ss') from test.dual;
 # 获取日期小时和分
 select substr('2011-12-07 13:01:03',1,16) from test.dual;  #2011-12-07 13:01
 
+# 获取小时
+select hour('2011-12-07 13:01:03'); # 注意必须是此种格式
+
 # 统计小时内的最高值
 select hour(ftime),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170708' group by hour(ftime) order by cnt desc;
 
@@ -1306,7 +1332,12 @@ select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime
 > select from_unixtime(cast(substring(tistmp,1,10) as bigint),'yyyy-MM-dd HH:mm:ss');
 > ```
 >
-> 
+> 秒和毫秒组合：
+>
+> ```mysql
+> # 截取13位的毫秒，转化为秒+毫秒
+> select concat(from_unixtime(cast(substr(1524448307222,1,10) as int),'yyyyMMdd HH:mm:ss'),' ',substr(1524448307222,11,3)) as ts;
+> ```
 
 日期运算
 
@@ -1481,8 +1512,22 @@ select explode(a) from array_test;
 select explode(mymap) as (mymapkey, mymapvalue) from mymaptable;
 
 # 列和集合(数组和map)
-
 ```
+
+> explode不能和其它列混合使用，例如
+>
+> ```mysql
+> select ds,explode(a) from array_test;
+> ```
+>
+> 若要混合，请使用类似map的操作方式:
+>
+> ```mysql
+> select ds,k
+> from 
+> 	array_test
+> lateral view explode(a)ed as k;
+> ```
 
 将一个map类型按k,v展开并和其它列进行组合成行
 
@@ -1494,7 +1539,7 @@ select eventid,
     xl_urldecode(pars) as pars
 from
     xxx.xxxxx 
-LATERAL VIEW explode(extdata)a as ori,pars
+LATERAL VIEW explode(extdata)ed as ori,pars
 where day='20180313' and extdata['xxxx']='xxxxx' 
     and eventid in ('published','upload')
     and ori not rlike '^pub|timestamp'
@@ -1548,7 +1593,7 @@ group by
 
 ###### [cume_dist](http://lxw1234.com/archives/2015/04/185.htm)
 
-小于等于当前值的行数/分组内的总行数
+小于等于当前值的行数/分组内的总行数,也就是分组百分比
 
 ```mysql
 SELECT 
@@ -1616,26 +1661,46 @@ NTILE(n)，用于将分组数据按照顺序切分成n片，返回当前切片�
 
 ```mysql
 SELECT 
-cookieid,
-createtime,
-pv,
-NTILE(2) OVER(PARTITION BY cookieid ORDER BY createtime) AS rn1,-- 分组内将数据分成2片
-NTILE(3) OVER(PARTITION BY cookieid ORDER BY createtime) AS rn2, -- 分组内将数据分成3片
-NTILE(4) OVER(ORDER BY createtime) AS rn3  -- 将所有数据分成4片
+  cookieid,
+  createtime,
+  pv,
+  NTILE(2) OVER(PARTITION BY cookieid ORDER BY createtime) AS rn1,-- 分组内将数据分成2片
+  NTILE(3) OVER(PARTITION BY cookieid ORDER BY createtime) AS rn2, -- 分组内将数据分成3片
+  NTILE(4) OVER(ORDER BY createtime) AS rn3  -- 将所有数据分成4片
 FROM 
 	xmp_data_mid.highfun_test 
 ORDER BY cookieid,createtime;
 ```
 
-###### [percentile](http://lxw1234.com/archives/2015/04/181.htm)
+###### [percentile](https://www.2cto.com/database/201705/636701.html)
 
-  返回分位点对应的记录值,注意使用前要先对要操作的列进行排序 
+计算分位数的函数percentile和percentile_approx，percentile要求输入的字段必须是int类型的，而percentile_approx则是数值类似型的都可以 ,返回分位点对应的记录值(该记录值不一定在记录中)。
+
+格式
+
+```shell
+使用方式为percentile(col, p)、percentile_approx(col, p,B)，p∈(0,1) .返回col列p分位上的值。B用来控制内存消耗的精度,B越大，结果的准确度越高。默认为10,000。实际col中 distinct的值 其中percentile要求输入的字段必须是int类型的，而percentile_approx则是数值类似型的都可以（此处待确认，有问题）
+```
+
+方法
 
 ```mysql
-#percentile要求输入的字段必须是int类型的，而percentile_approx则是数值类似型的都可以 .
+# 使用格式
 percentile_approx(col,array(0.05,0.5,0.95),9999) #或者
 percentile_approx(cast(col as double),array(0.05,0.5,0.95),9999)
+
+# 取排位在倒数第5%的数的取值
+percentile_approx(grade, 0.95)
+
+select percentile(cast(id as bigint),array(0.25,0.5,0.75)) from high_test;	      # [4.25,7.5,10.75]
+select percentile_approx(cast(id as bigint),array(0.25,0.5,0.75)) from high_test; # [3.5,7.0,10.5]
+
+
+# 扩展(展开成行)
+select explode(percentile(cast(id as bigint),array(0.25,0.5,0.75))) from high_test;
 ```
+
+> 注意使用前要先对要操作的列进行排序，然后可以根据排序确定分位数。
 
 ######   xx\_rank()
 
@@ -1686,10 +1751,10 @@ SELECT
  	 dept,
   	 userid,
   	 sal,
-  	 PERCENT_RANK() OVER(ORDER BY sal) AS rn1,   --分组内
- 	 RANK() OVER(ORDER BY sal) AS rn11,          --分组内RANK值
- 	 SUM(1) OVER(PARTITION BY NULL) AS rn12,     --分组内总行数
-	PERCENT_RANK() OVER(PARTITION BY dept ORDER BY sal) AS rn2 
+  	 PERCENT_RANK() OVER(ORDER BY sal) AS rn1,   -- 总体百分比
+ 	 RANK() OVER(ORDER BY sal) AS rn11,          -- 总体排行
+ 	 SUM(1) OVER(PARTITION BY NULL) AS rn12,     -- 分组内总行数
+	 PERCENT_RANK() OVER(PARTITION BY dept ORDER BY sal) AS rn2  -- 分组内rank值 
 FROM lxw1234;
  
 # 结果
@@ -1710,6 +1775,16 @@ rn2: 按照dept分组，
      第一行，(1-1)/(3-1)=0
      第三行，(3-1)/(3-1)=1
 ```
+
+###### [lag/lead](http://lxw1234.com/archives/2015/04/190.htm)
+
+LAG(col,n,DEFAULT) 用于统计窗口内往上第n行值,第一个参数为列名，第二个参数为往上第n行（可选，默认为1），第三个参数为默认值（当往上第n行为NULL时候，取默认值，如不指定，则为NULL）
+
+LEAD(col,n,DEFAULT) 用于统计窗口内往下第n行值,第一个参数为列名，第二个参数为往下第n行（可选，默认为1），第三个参数为默认值（当往下第n行为NULL时候，取默认值，如不指定，则为NULL）
+
+###### [first_value/last_value](http://lxw1234.com/archives/2015/04/190.htm)
+
+first_value取分组内排序后，截止到当前行，第一个值,last_value取分组内排序后，截止到当前行，最后一个值
 
 ##### 数学函数-混合
 
@@ -2157,7 +2232,7 @@ nvl(xl_geoip_parse(xl_inet_ntoa(xl_htonl(cast(serverinfo[1] as bigint))),'PROVIN
 nvl(xl_geoip_parse(xl_inet_ntoa(xl_htonl(cast(serverinfo[1] as bigint))),'CITY')['city'],'unknow') as city
 ```
 
-> xl_geoip_parse
+> ==xl_geoip_parse:==
 >
 > ```shell
 > 第一个参数ip（字符串，例如：59.54.109.78）
@@ -2368,7 +2443,52 @@ group by s1,
 
 ### 优化
 
-#### 本地模式
+优化方向:
+
+- 好的模型设计事半功倍
+- 解决数据倾斜问题，set hive.groupby.skewindata=true;
+- 减少job数
+- 设置合理的map reduce的task数，能有效提升性能
+- 对count(distinct)采取漠视的方法，尤其数据大的时候很容易产生倾斜问题
+- 小文件合并
+- 把握整体，单个作业的最优不如整体的最优
+
+#### 设置参数
+
+参数一览
+
+| 设置                                       | 意义     | 备注   |
+| ---------------------------------------- | ------ | ---- |
+| hive.auto.convert.join=true;             |        |      |
+| hive.auto.convert.join.noconditionaltask = true; |        |      |
+| hive.auto.convert.join.noconditionaltask.size = 250000000; |        |      |
+| set hive.exec.mode.local.auto=true;      | 开启本地模式 |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+|                                          |        |      |
+
+##### 设置reduce的个数
+
+```shell
+set mapred.reduce.tasks=18;
+
+# 设置最大reduce的个数
+set hive.exec.reducers.max=128;
+```
+
+##### 开启本地模式
 
 ```mysql
 hive> set hive.exec.mode.local.auto=true;(默认为false)
@@ -2379,9 +2499,9 @@ hive> set hive.exec.mode.local.auto=true;(默认为false)
 3.job的reduce数必须为0或者1
 ```
 
-#### 多表join
+#### muti join
 
-优化代码结构
+多表join , 优化代码结构
 
 ```mysql
 select .. from join tables (a,b,c) with keys (a.key, b.key, c.key) where ....   
@@ -2418,7 +2538,7 @@ select a.guid,a.eventid from xlj_test_event a left semi join xlj_test_user b on 
 select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active b  on (a.pid=b.pid) where a.minds=20160101 and b.ds=20160109 limit 10;
 ```
 
-#### mapjoin
+#### map join
 
 ​	mapjoin会把小表全部读入内存中，在map阶段直接拿另外一个表的数据和内存中表的数据做匹配，而普通的equality join则是类似于mapreduce中的filejoin,需要先分组，然后在reduce端进行连接，由于mapjoin是在map是进行了join操作，省去了reduce的运行，效率也会高很多
 
@@ -2444,45 +2564,11 @@ select /*+ mapjoin(t1)*/ t1.a,t1.b from table t1 join table2 t2  on ( t1.a=t2.a 
 
 > 该语句中t2表有30亿行记录，t1表只有100行记录，而且t2表中数据倾斜特别严重，有一个key上有15亿行记录，在运行过程中特别的慢，而且在reduece的过程中遇有内存不够而报错
 
-#### 设置参数
-
-##### 参数一览
-
-| 设置                                       | 意义   | 备注   |
-| ---------------------------------------- | ---- | ---- |
-| hive.auto.convert.join=true;             |      |      |
-| hive.auto.convert.join.noconditionaltask = true; |      |      |
-| hive.auto.convert.join.noconditionaltask.size = 250000000; |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-|                                          |      |      |
-
-设置reduce的个数
-
-```shell
-set mapred.reduce.tasks=18;
-
-# 设置最大reduce的个数
-set hive.exec.reducers.max=128;
-```
 
 #### 数据倾斜
 
 ```shell
-set hive.groupby.skewindata=false;
+set hive.groupby.skewindata=true;
 ```
 
 #### 合并小文件
@@ -2583,6 +2669,85 @@ where  t2.par_datetime in ('201405')
    and t2.Ireason not in (1003);
 ```
 
+##### count distinct 和sum
+
+![count distinct sum问题](http://tuling56.site/imgbed/2018-04-27_140239.png)
+
+##### [hive cube rollup分组问题](https://blog.csdn.net/u011317245/article/details/52503170)
+
+提示错误：
+
+> FAILED: SemanticException [Error 10210]: Grouping sets aggregations (with rollups or cubes) are not allowed if aggregation function parameters overlap with the aggregation functions columns
+
+例子如下：
+
+```mysql
+select 
+    ds
+    ,'首页影评卡片曝光和点击'
+    ,attribute1
+    ,nvl(extdata_map['cinecism_id'],'total') as cid
+    ,substr(substr(guid,-2),1,1) as last_2
+    ,substr(guid,-1) as last_1
+    ,count(*) as cnt
+    ,count(distinct guid) -- 人数
+from
+    shoulei_bdl.bl_shoulei_event_fact
+where ds='20180417' and appid='45' and type='video'
+    and cv rlike '^5.57'
+    and eventname='android_hometab'
+    and attribute1 in ('home_cinecism_show','home_cinecism_click')
+    and extdata_map['cinecism_id'] is not null 
+group by 
+    ds
+    ,attribute1
+    ,extdata_map['cinecism_id']
+    ,substr(substr(guid,-2),1,1)
+    ,substr(guid,-1)
+grouping sets((ds)
+    ,(ds,attribute1,substr(substr(guid,-2),1,1),substr(guid,-1))
+    ,(ds,attribute1,extdata_map['cinecism_id'],substr(substr(guid,-2),1,1),substr(guid,-1))
+);
+
+# 存在5个聚合条件，但是去掉count(distinct guid)这个计算人数的选项后，就可以使用了
+```
+
+##### [order by,sort by, distribute by, cluster by区别](https://blog.csdn.net/jthink_/article/details/38903775)
+
+###### order by 
+
+全局排序，最后所有的数据都会到同一个reducer进行处理，需要注意的是：
+
+hive.mapred.mode=strict（默认值是nonstrict）,这时就必须指定limit来限制输出条数
+
+###### sort by
+
+每个reducer端都会进行排序，也就是保证局部有序，但是不能不保证全局有序（除非只有一个reducer),好处事进行了局部排序之后在进行全局排序就能提高不少的效率
+
+######  distribute by和sort by
+
+ ditribute by是控制map的输出在reducer是如何划分的,可以得到伪近似的全局排序
+
+###### cluster by
+
+```mysql
+select mid, money, name from store cluster by mid  
+# 等价于
+select mid, money, name from store distribute by mid sort by mid  
+```
+
+​    如果需要获得与3中语句一样的效果：
+
+```mysql
+select mid, money, name from store cluster by mid sort by money  
+```
+
+​    注意被cluster by指定的列只能是降序，不能指定asc和desc。
+
+##### reduce 卡在99%的数据倾斜问题
+
+参见优化-数据倾斜
+
 ## 参考
 
 - 基础
@@ -2637,12 +2802,16 @@ where  t2.par_datetime in ('201405')
 
 - 优化
 
+  [hive优化-使用经验](http://www.aboutyun.com/thread-6047-1-1.html)
+
   [hive开启本地模式](http://blog.csdn.net/shenxiaoming77/article/details/43197441)
 
   [Hive join数据倾斜解决方案](http://www.cnblogs.com/ggjucheng/archive/2013/01/03/2842821.html)
 
-  [hive mapjoin使用和个人理解](https://blog.csdn.net/liuj2511981/article/details/8616730)
+  [hive map join使用和个人理解](https://blog.csdn.net/liuj2511981/article/details/8616730)
 
 - 备份
 
   [load data指令小结（推荐）](https://www.cnblogs.com/tugeler/p/5133019.html)
+
+- 问题​

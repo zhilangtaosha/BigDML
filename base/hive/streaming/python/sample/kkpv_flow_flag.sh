@@ -78,8 +78,7 @@ hql="
 	is_vip string,
 	url string,
 	ref string,
-	contractNo string
-"
+	contractNo string"
 echo "$hql"
 ${HIVE} -e "$hql"
 

@@ -28,3 +28,5 @@ stored as textfile;
 
 --数据加载
 load data local inpath "high.txt"  overwrite into table high_test partition(dtask='analysis');
+
+
