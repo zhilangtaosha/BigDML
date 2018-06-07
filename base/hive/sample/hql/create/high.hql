@@ -30,3 +30,14 @@ stored as textfile;
 load data local inpath "high.txt"  overwrite into table high_test partition(dtask='analysis');
 
 
+--在此基础上的函数测试
+select percentile_approx(a2[1],array(0.25,0.5,0.75)) from high_test;
+
+select percentile_approx(num,array(0.25,0.5,0.75)) 
+from 
+(
+    select a2[1] as num from high_test order by num
+)a;
+
+
+

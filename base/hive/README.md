@@ -36,17 +36,22 @@
 split('xxx_we2_23','_');  
 ```
 
-**int/num**
+**num**
 
-```shell
-
+```mysql
+create table if not exists basic_test(
+	ia_tiny tinyint unsigned,
+    ib_small smallint unsigned,
+    ib1_small smallint,
+    ic_float float,
+    id_double double,
+    ie_boolen boolean
+);
 ```
-
-
 
 ##### 复杂数据类型
 
-**array**
+###### **array**
 
 ```mysql
 CREATE TABLE `array_test`(
@@ -115,9 +120,9 @@ load data local inpath "array.txt"  overwrite into table array_test partition(ds
 # 判断一个数是否在数组中
 ```
 
-**map**
+###### **map**
 
-```hive
+```mysql
 CREATE TABLE `map_test`(
   `a` string, 
   `b` map<string,string>, 
@@ -137,15 +142,14 @@ LOCATION
   'hdfs://wh-ns/user/root/warehouse/xmp_data_mid.db/map_test';
 ```
 
-
+map数据的插入
 
 ```mysql
 select map("key1","val1") from test.dual; 
 
 # 测试1：
-insert into table xmp_data_mid.map_test values( 'hahh',map("key1","val1"));
-# 则会报错：
-# Unable to create temp file for insert values Expression of type TOK_FUNCTION not supported in insert/values
+insert into table xmp_data_mid.map_test values('hahh',map("key1","val1"));
+# 则会报错：Unable to create temp file for insert values Expression of type TOK_FUNCTION not supported in insert/values
 # 更改成：
 insert into table xmp_data_mid.map_test select 'hahh',map("key1","val1") # from test.dual;
 
@@ -162,6 +166,14 @@ hahh    {"{\"key2\"":"\"val2\"}"}
 
 insert into table xmp_data_mid.map_test select 'hahh',str_to_map('key3:val3,key4:val4');
 ```
+
+> map字段插入空:
+>
+> ```mysql
+> insert into xxxx partition(ds = 'xxxxxx')
+> select xxx as c1,map(NULL, NULL) as c2 from xxx;
+> #select查询时，显示此字段为{}。
+> ```
 
 例子：
 
@@ -197,11 +209,7 @@ map操作
 # map的values中是否含有某value
 ```
 
-
-
-
-
-**struct**
+###### **struct**
 
 ```mysql
 # 建表
@@ -886,7 +894,8 @@ select regexp_extract('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_push
 > select regexp_extract('a,b,c,de,f2g2','(.*),(.*)',2); 
 >
 > #提取中文标题的尝试
-> select regexp_extract('D:\迅雷下载\[2015]小森林小森林\夏秋篇.Little.Forest.Summer.Autumn.rmvb_snapshot_00[2015.08.31_09].jpg','(.*)\(.*)',1);
+> select regexp_extract('D:\迅雷下载\[2015]小森林小森林\夏秋篇.Little.Forest.Summer.Autumn.rmvb_snapshot_00[2015.08.31_09].jpg','(.*)\(.*)',1);  #提取路径
+> select regexp_extract(filename,'(.*)/(.*)',2);  # 提取文件名
 >
 > select regexp_extract('x=123abcde&x=18456abc&x=2&y=3&x=4','x=([0-9]+)([a-z]+)',2);
 > ```
@@ -1054,6 +1063,32 @@ on a.pid=b.peerid;
 
 ##### map join
 
+​	mapjoin会把小表全部读入内存中，在map阶段直接拿另外一个表的数据和内存中表的数据做匹配，而普通的equality join则是类似于mapreduce中的filejoin,需要先分组，然后在reduce端进行连接，由于mapjoin是在map是进行了join操作，省去了reduce的运行，效率也会高很多
+
+​	mapjoin还有一个很大的好处是能够进行不等连接的join操作，如果将不等条件写在where中，那么mapreduce过程中会进行笛卡尔积，运行效率特别低，这是由于equality join （不等值join操作有 >、<、like等如：a.x < b.y 或者 a.x like b.y） 需要在reduce端进行不等值判断，map端只能过滤掉where中等值连接时候的条件，如果使用mapjoin操作，在map的过程中就完成了不等值的join操作，效率会高很多。
+
+```mysql
+select A.a ,A.b from A join B where A.a>B.a
+```
+
+###### 应用场景
+
+- 关联操作中有一张表非常小
+- 不等值的连接操作
+
+例子：
+
+```mysql
+select t1.a,t1.b from table t1 join table2 t2  on ( t1.a=t2.a and t1.datecol=20110802)
+
+# 改进后
+select /*+ mapjoin(t1)*/ t1.a,t1.b from table t1 join table2 t2  on ( t1.a=t2.a and f.ftime=20110802) 
+```
+
+> 该语句中t2表有30亿行记录，t1表只有100行记录，而且t2表中数据倾斜特别严重，有一个key上有15亿行记录，在运行过程中特别的慢，而且在reduece的过程中遇有内存不够而报错
+
+###### 进阶
+
 连接小表的时候，在内存中操作，省去reduce过程,和common join存在着差别
 
 ```mysql
@@ -1071,7 +1106,44 @@ right outer join 大表 B
 on A.XX=B.XX
 ```
 
+##### muti join
 
+多表join , 优化代码结构
+
+```mysql
+select .. from join tables (a,b,c) with keys (a.key, b.key, c.key) where ....   
+```
+
+关联条件相同多表join会优化成一个job
+
+##### left semi join
+
+[left semi join](https://blog.csdn.net/wisdom_c_1010/article/details/78774129)是可以高效实现in/exists子查询的语义，
+
+- 当A表中的记录，在B表上产生符合条件之后就返回，不会再继续查找B表记录了
+- select的只能是左侧表的字段，不能出现右侧表的字段
+- 不支持在on条件中使用in ()
+
+```mysql
+ select a.key,a.value from a where a.key in (select b.key from b);
+（1）未实现left semi-join之前，hive实现上述语义的语句是：
+   select t1.key, t1.value from a t1
+   left outer join (select distinctkey from b) t2 
+   on t1.id = t2.id
+   where t2.id is not null;
+
+（2）可被替换为left semi join如下：
+   select a.key, a.val from a left semi join b on (a.key = b.key)
+   这一实现减少至少1次mr过程，注意left semi-join的join条件必须是等值。
+```
+
+例子：
+
+```mysql
+select a.guid,a.eventid from xlj_test_event a left semi join xlj_test_user b on a.guid=b.guid and a.ds=20150527 and b.ds=20150527 and a.eventid=3604 limit 40;
+
+select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active b  on (a.pid=b.pid) where a.minds=20160101 and b.ds=20160109 limit 10;
+```
 
 #### 分组
 
@@ -1080,6 +1152,17 @@ on A.XX=B.XX
 ```mysql
 group by xx
 grouping sets ((),(xx,xxx,vvv),(xx,xx))
+```
+
+##### with cube
+
+```mysql
+group by xx1,xx2,xx3
+with cube
+
+# 其等效于
+group by xx1,xx2,xx3
+grouping sets((),(xx1),(xx1,xx2),(xx1,xx2,xx3));
 ```
 
 ### 函数
@@ -1300,7 +1383,7 @@ select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 
 ```mysql
 # 时间戳转日期
-select from_unixtime(finsert_time,'yyyyMMdd HH:mm:ss') from xmp_odl.xmp_pv where ds='20161206';
+select from_unixtime(1527680835,'yyyyMMdd HH:mm:ss') from xmp_odl.xmp_pv where ds='20161206';
 
 # 日期转时间戳
 select unix_timestamp('20111207 13:01:03','yyyyMMdd HH:mm:ss') from test.dual;
@@ -1308,8 +1391,14 @@ select unix_timestamp('20111207 13:01:03','yyyyMMdd HH:mm:ss') from test.dual;
 # 获取日期小时和分
 select substr('2011-12-07 13:01:03',1,16) from test.dual;  #2011-12-07 13:01
 
+# 获取小时和分
+select substr('2011-12-07 13:01:03',12,5) from test.dual;  #13:01
+
+
 # 获取小时
 select hour('2011-12-07 13:01:03'); # 注意必须是此种格式
+select hour(from_unixtime(cast(ts as bigint),'yyyy-MM-dd HH:mm:ss'));
+
 
 # 统计小时内的最高值
 select hour(ftime),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170708' group by hour(ftime) order by cnt desc;
@@ -1387,7 +1476,7 @@ select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime
 
 ###### grouping sets
 
-在一个GROUP BY查询中，根据不同的维度组合进行聚合，等价于将不同维度的GROUP BY结果集进行UNION ALL
+在一个GROUP BY查询中，根据不同的维度组合进行聚合，等价于将不同维度GROUP BY结果集进行UNION ALL
 
 ```mysql
 select ds,
@@ -1407,8 +1496,6 @@ ds				srctbl	srcdb			hour 	datasize
 2016/12/26      zkusr   pgv3_split_c2   12      0
 ```
 
-
-
 > 注:
 >
 > - grouping sets里的字段不能有计算字段，但可以有extdata['xx']这样的
@@ -1424,7 +1511,6 @@ ds				srctbl	srcdb			hour 	datasize
 > grouping sets ((),(ds,srctbl),(ds,srcdb));
 > ```
 >
-> 
 
 ###### cube
 
@@ -1575,7 +1661,7 @@ from
       test.dual
       lateral view explode(split(xl_urldecode(extdata_map['contentlist'],'\\;')) content_arr
    where ds>='20180314' and ds<='20180314' and appid='45'
-      	and eventname='android_linkCollect'?
+      	and eventname='android_linkCollect'
         and attribute1='linkCollect_content_show'
 )a
 laterval view explode(content_arr) as (mkey,mvalue)
@@ -1587,7 +1673,28 @@ group by
  
 ```
 
-
+```mysql
+#首页短视频曝光按网络类型改进版(曝光次数去重)
+select 
+    ds
+    ,network
+    ,count(*)
+    ,count(distinct concat(guid,movieid))
+from
+(select
+    ds
+    ,extdata_map['pub_network'] as network
+    ,guid
+    ,str_to_map(ed,',','=')['id'] as movieid
+from
+    shoulei_bdl.bl_shoulei_event_fact
+lateral view explode(split(xl_urldecode(xl_urldecode(extdata_map['contentlist'])),'\073'))et as ed
+where ds in('20180506','20180503') and appid='45' and type='video' 
+    and ts>0 and guid!='' and guid!='NULL'
+    and attribute1='home_collect_content_show'
+)t
+group by ds,network;
+```
 
 ##### 数据函数-分析
 
@@ -1726,6 +1833,26 @@ SELECT A.ds, A.srctbl, A.srcdb,A.datasize
  WHERE RK < 4;
 ```
 
+> 注意：不分区排序(整体排序)
+>
+> ```mysql
+> # 排序后抽样挑选
+> select 
+> 	* 
+> from
+> (
+>     select 
+>         play_duration,
+>         play_starttime,
+>         play_endtime,
+>         rank() over (order by play_duration) as rn
+>     from 
+>         shoulei_bdl.bl_shoulei_play_native 
+>     where ds='20180525' and appid='45'
+> )a
+> where rn%1000=0;
+> ```
+
 dense_rank()
 
 ```mysql
@@ -1823,6 +1950,8 @@ first_value取分组内排序后，截止到当前行，第一个值,last_value�
 ```mysql
 select find_in_set('ab','ef,ab,de'); -- 2
 select find_in_set('cd','ef,ab,de'); -- 0 
+
+select find_in_set('cd',concat_ws(',',array('ef','ab','de'))); --0
 ```
 
 ###### 应用场景
@@ -1842,7 +1971,46 @@ select concat_ws(',',array(2,NULL,1));
 数组排序
 
 ```mysql
-select sort_array(array(2,NULL,1)); # 结果[null,1,2]
+select sort_array(array(2,NULL,1)); 	# [null,1,2]
+select sort_array(array(5,1,2,3,null)); # [null,1,2,3,5]
+select sort_array(array("a","b","q","d","e")); #["a","b","d","e","q"]
+```
+
+数组的最大值和最小值
+
+```mysql
+# 数组最大值
+select sort_array(array(2,NULL,1))[size(array(2,NULL,1))-1];
+select sort_array(arr1)[size(arr1)-1];
+
+# 数组最小值
+select a2,if(sort_array(a2)[0] is NULL,sort_array(a2)[1],sort_array(a2)[0]) from xmp_data_mid.high_test;
+```
+
+数组均值、中位数、最大值、最小值
+
+```mysql
+# 方法1：
+select
+    id
+    ,avg(ed)
+    ,max(ed)
+    ,min(ed)
+from xmp_data_mid.high_test
+lateral view explode(a1)ed as ed
+group by id;
+
+# 方法2
+select id
+    ,avg(ed)
+    ,max(ed)
+    ,min(ed)
+from
+(select id,ed
+from xmp_data_mid.high_test
+lateral view explode(a1)etd as ed
+)t
+group by id;
 ```
 
 
@@ -1906,11 +2074,15 @@ insert into xmp_data_mid.map_test select 'vvvv',b from xmp_data_mid.map_test;
 
 ```mysql
 # 从json字符串中取值
+# 方法1：get_json_object
 get_json_object(string json_string, string path)
 # select a.timestamp, get_json_object(a.appevents, ‘$.eventid’), get_json_object(a.appenvets, ‘$.eventname’) from log a;
+
+# 方法2：json_tuple
+select a.id,b.* from struct_test a lateral view json_tuple('{"name":"zhou","age":30}','name','age')b as f1,f2;
 ```
 
-> 注意json字符串不能连续的取值：
+> 注意json字符串不能连续的取值，要用以下的方式：
 >
 > ```mysql
 > get_json_object(get_json_object(content,'$.ed'),'$.clickid') as clickid
@@ -2050,7 +2222,9 @@ hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进
 
 - IO开销大，效率低
 
-##### transform
+##### 语句
+
+###### transform
 
 结合insert overwrite 使用transform
 
@@ -2064,7 +2238,7 @@ from xmp_odl.xmpplaydur where ds='$date' limit 1000;
 
 > 可以直接将经过处理后的文件进行处理后导出到本地
 
-#####  reduce
+######  reduce
 
 ```mysql
 add file t_stat_url_upload_split_mapper.py;
@@ -2081,6 +2255,26 @@ as install,channel,peerid,version, package_name, installtype,fip,ftime ;
 ```
 
 > 处理后插入到新表中
+
+#####  实现
+
+###### python
+
+```shell
+python实现
+```
+
+###### shell
+
+```shell
+shell实现
+```
+
+###### perl
+
+```perl
+perl实现
+```
 
 ### 积累
 
@@ -2222,6 +2416,11 @@ int->ipstr
 例子
 
 ```mysql
+select xl_geoip_parse('59.54.109.78','ISP') #{"isp":"电信"}
+
+# 准备工作：将整型ip（字符格式）转化成字符串
+xl_inet_ntoa(xl_htonl(cast(serverinfo[1] as bigint)))
+
 # 解析供应商（名称）
 nvl(xl_geoip_parse(xl_inet_ntoa(xl_htonl(cast(serverinfo[1] as bigint))), 'ISP')['isp'],'unknow') as isp
 
@@ -2464,20 +2663,39 @@ group by s1,
 | hive.auto.convert.join.noconditionaltask.size = 250000000; |        |      |
 | set hive.exec.mode.local.auto=true;      | 开启本地模式 |      |
 |                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
-|                                          |        |      |
+
+设置样例
+
+```shell
+HIVE="/usr/local/complat/cdh5.10.0/hive/bin/hive  
+-hiveconf mapreduce.job.name=xxstat_hive 
+-hiveconf mapred.job.queue.name=root.shoulei
+
+# 输入输出
+-hiveconf hive.exec.compress.output=true 
+-hiveconf hive.exec.compress.intermediate=true
+-hiveconf io.seqfile.compression.type=BLOCK 
+-hiveconf hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat 
+-hiveconf mapreduce.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec 
+
+-hiveconf hive.map.aggr=true
+-hiveconf hive.stats.autogather=false  
+
+# 动态分区
+-hiveconf hive.exec.dynamic.partition=true
+-hiveconf hive.exec.dynamic.partition.mode=nonstrict
+
+# 小文件合并
+-hiveconf mapreduce.max.split.size=100000000 
+-hiveconf mapreduce.min.split.size.per.node=100000000 
+-hiveconf mapreduce.min.split.size.per.rack=100000000
+
+# join配置
+-hiveconf hive.auto.convert.join=false
+
+# 数据倾斜处理
+-hiveconf hive.groupby.skewindata=false"
+```
 
 ##### 设置reduce的个数
 
@@ -2499,71 +2717,6 @@ hive> set hive.exec.mode.local.auto=true;(默认为false)
 3.job的reduce数必须为0或者1
 ```
 
-#### muti join
-
-多表join , 优化代码结构
-
-```mysql
-select .. from join tables (a,b,c) with keys (a.key, b.key, c.key) where ....   
-```
-
-关联条件相同多表join会优化成一个job
-
-#### left semi join
-
-left semi join是可以高效实现in/exists子查询的语义，
-
-- 当A表中的记录，在B表上产生符合条件之后就返回，不会再继续查找B表记录了
-- select的只能是左侧表的字段，不能出现右侧表的字段
-- 不支持在on条件中使用in ()
-
-```mysql
- select a.key,a.value from a where a.key in (select b.key from b);
-（1）未实现left semi-join之前，hive实现上述语义的语句是：
-   select t1.key, t1.value from a t1
-   left outer join (select distinctkey from b) t2 
-   on t1.id = t2.id
-   where t2.id is not null;
-
-（2）可被替换为left semi join如下：
-   select a.key, a.val from a left semi join b on (a.key = b.key)
-   这一实现减少至少1次mr过程，注意left semi-join的join条件必须是等值。
-```
-
-例子：
-
-```mysql
-select a.guid,a.eventid from xlj_test_event a left semi join xlj_test_user b on a.guid=b.guid and a.ds=20150527 and b.ds=20150527 and a.eventid=3604 limit 40;
-
-select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active b  on (a.pid=b.pid) where a.minds=20160101 and b.ds=20160109 limit 10;
-```
-
-#### map join
-
-​	mapjoin会把小表全部读入内存中，在map阶段直接拿另外一个表的数据和内存中表的数据做匹配，而普通的equality join则是类似于mapreduce中的filejoin,需要先分组，然后在reduce端进行连接，由于mapjoin是在map是进行了join操作，省去了reduce的运行，效率也会高很多
-
-​	mapjoin还有一个很大的好处是能够进行不等连接的join操作，如果将不等条件写在where中，那么mapreduce过程中会进行笛卡尔积，运行效率特别低，这是由于equality join （不等值join操作有 >、<、like等如：a.x < b.y 或者 a.x like b.y） 需要在reduce端进行不等值判断，map端只能过滤掉where中等值连接时候的条件，如果使用mapjoin操作，在map的过程中就完成了不等值的join操作，效率会高很多。
-
-```mysql
-select A.a ,A.b from A join B where A.a>B.a
-```
-
-##### 应用场景
-
-- 关联操作中有一张表非常小
-- 不等值的连接操作
-
-例子：
-
-```mysql
-select t1.a,t1.b from table t1 join table2 t2  on ( t1.a=t2.a and t1.datecol=20110802)
-
-# 改进后
-select /*+ mapjoin(t1)*/ t1.a,t1.b from table t1 join table2 t2  on ( t1.a=t2.a and f.ftime=20110802) 
-```
-
-> 该语句中t2表有30亿行记录，t1表只有100行记录，而且t2表中数据倾斜特别严重，有一个key上有15亿行记录，在运行过程中特别的慢，而且在reduece的过程中遇有内存不够而报错
-
 
 #### 数据倾斜
 
@@ -2571,18 +2724,61 @@ select /*+ mapjoin(t1)*/ t1.a,t1.b from table t1 join table2 t2  on ( t1.a=t2.a 
 set hive.groupby.skewindata=true;
 ```
 
-#### 合并小文件
+注意下面语句的报错：
 
-```shell
+```mysql
+-- hive优化公共项
+-- 合并小文件
 set hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
 set mapreduce.max.split.size=100000000;
 set mapreduce.min.split.size.per.node=100000000;
 set mapreduce.min.split.size.per.rack=100000000;
 
+-- 设置reducer个数
+set hive.exec.reducers.max=128;
+
+-- 数据倾斜
+set hive.groupby.skewindata=true;
+
+-- 分组点击输入、点击评论区、点赞
+select
+    ds
+    ,substr(guid,-1)
+    ,'分组点击输入_点击评论区_点赞'
+    ,sum(if(extdata_map['button']='input',1,0)) as click_input_cnt
+    ,count(distinct if(extdata_map['button']='input',guid,NULL)) as click_input_user
+    ,sum(if(extdata_map['button']='comment',1,0)) as click_comment_cnt
+    ,count(distinct if(extdata_map['button']='comment',guid,NULL)) as click_comment_user
+    ,sum(if(extdata_map['button']='comment_like',1,0)) as click_like_cnt
+    ,count(distinct if(extdata_map['button']='comment_like',guid,NULL)) as click_like_user
+from
+    shoulei_bdl.bl_shoulei_event_fact
+where
+    ds>='20180511' and ds<='20180514'  and appid='45'
+    and eventname='android_dl_center_action'
+    and attribute1='dl_center_detail_click'
+    and cv rlike '^5.58'
+group by
+    ds
+    ,substr(guid,-1);
+```
+
+> FAILED: SemanticException [Error 10022]: DISTINCT on different columns not supported with skew in data
+
+#### 合并小文件
+
+```shell
+# 合并小文件
+set hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
+set mapreduce.max.split.size=100000000;
+set mapreduce.min.split.size.per.node=100000000;
+set mapreduce.min.split.size.per.rack=100000000;
+
+# 设置reducer个数
 set hive.exec.reducers.max=128;
 ```
 
-
+> 备注:一般将数据倾斜和合并小文件放在一起使用
 
 ### 备份
 
@@ -2590,7 +2786,7 @@ set hive.exec.reducers.max=128;
 
 数据迁移指的是在不同的hive数据仓库或者不同的hive集群上进行数据的迁移
 
-**结构迁移**
+##### 结构迁移
 
 结构迁移可以跨库
 
@@ -2598,7 +2794,9 @@ set hive.exec.reducers.max=128;
 create table db1.xxx like db2.xxx;
 ```
 
-**结构和数据迁移**
+##### 结构和数据迁移
+
+数据迁移的时候也可以直接跨库
 
 ```mysql
 create table db1.xxx as select * from db2.xxx;
@@ -2607,6 +2805,8 @@ create table db1.xxx as select * from db2.xxx;
 > 不确定分区是否也一起迁移了，或者迁移的数据是否也按分区
 
 #### 导入
+
+##### 文件导入
 
 ```mysql
 # 基本
@@ -2618,7 +2818,23 @@ ihql="use kankan_odl;delete from tbname where ds='${date}';
 ${HIVE} -e "{chql}"
 ```
 
+> 注意`overwrite`的使用
+
+##### 其它表
+
+```mysql
+insert [overwrite] into table tmp2 partition(ds='20180521') 
+select attribute1,is_core,user_type,comment,appid 
+from 
+	ftbl_dim_shoulei_dau_flag 
+where ds='20180521';
+```
+
+> 从其表的数据导入，注意分区的使用
+
 #### 导出
+
+##### 导出到文件
 
 - 命令行输出重定向
 
@@ -2631,6 +2847,12 @@ ${HIVE} -e "${hql}" > xmp_cloud_20161201
 
 ```sql
 insert overwrite local directory '/data/access_log/access_log.45491' row format delimited fields terminated by '\t' collection items terminated by ',' select * from xx
+```
+
+##### 导出到其源
+
+```mysql
+
 ```
 
 ### 问题
@@ -2746,7 +2968,11 @@ select mid, money, name from store cluster by mid sort by money
 
 ##### reduce 卡在99%的数据倾斜问题
 
-参见优化-数据倾斜
+参见优化-数据倾斜，目前的处理方法是：
+
+```shell
+set hive.groupby.skewindata=true;
+```
 
 ## 参考
 
@@ -2768,9 +2994,13 @@ select mid, money, name from store cluster by mid sort by money
 
   [hive数据类型转换](https://www.iteblog.com/archives/892.html)
 
+  [Hive数据类型和函数参考大全（推荐）](https://blog.csdn.net/xiaolang85/article/details/8645647)
+
 - 函数
 
   [HIVE2.0函数大全(推荐)](https://www.cnblogs.com/MOBIN/p/5618747.html#1)
+
+  [HIVE函数大全和例子](https://blog.csdn.net/xianming2012/article/details/17372195)
 
   [HIVE 时间函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
 
@@ -2799,6 +3029,8 @@ select mid, money, name from store cluster by mid sort by money
   [lateral view explode用法](http://blog.csdn.net/bitcarmanlee/article/details/51926530)
 
   [hive 高级数据类型使用之array（含横表转纵表)](https://blog.csdn.net/dreamingfish2011/article/details/51250641)
+
+  [hive分组随机抽取](https://blog.csdn.net/zwj841558/article/details/71143493)
 
 - 优化
 
