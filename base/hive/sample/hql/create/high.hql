@@ -1,3 +1,4 @@
+-- 创建表
 use xmp_data_mid;
 drop table if exists high_test;
 create table if not exists high_test(
@@ -18,7 +19,6 @@ fields terminated by '\t'
 COLLECTION ITEMS TERMINATED BY ','
 map keys terminated by ':'
 stored as textfile;
-
 
 
 

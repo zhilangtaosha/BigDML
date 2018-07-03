@@ -4,13 +4,20 @@
 
 ### 框架比较
 
-| **库名称**    | **开发语言**                                 | **速度** | **灵活性** | **文档** | **适合模型**  | **平台**                                   | **上手难易** |
-| ---------- | ---------------------------------------- | ------ | ------- | ------ | --------- | ---------------------------------------- | -------- |
-| Caffe      | c++/cuda                                 | 快      | 一般      | 全面     | CNN       | 所有系统                                     | 中等       |
-| TensorFlow | c++/cuda/[Python](http://lib.csdn.net/base/python) | 中等     | 好       | 中等     | CNN/RNN   | [Linux](http://lib.csdn.net/base/linux), OSX | 难        |
-| MXNet      | c++/cuda                                 | 快      | 好       | 全面     | CNN       | 所有系统                                     | 中等       |
-| `Torch`    | `c/lua/cuda`                             | `快`    | `好`     | `全面`   | `CNN/RNN` | `Linux, OSX`                             | `中等`     |
-| Theano     | python/c++/cuda                          | 中等     | 好       | 中等     | CNN/RNN   | Linux, OSX                               | 易        |
+| **库名称** | **开发语言**                                       | 接口语言      | **速度** | **灵活性** | **文档** | **适合模型** | **平台**                                     | **上手难易** |
+| ---------- | -------------------------------------------------- | ------------- | -------- | ---------- | -------- | ------------ | -------------------------------------------- | ------------ |
+| CNTK       | c++                                                | c++/c#/python | 快       |            | 全面     |              | Win,Linux                                    | 中等         |
+| Caffe      | c++/cuda                                           |               | 快       | 一般       | 全面     | CNN          | 所有系统                                     | 中等         |
+| TensorFlow | c++/cuda/[Python](http://lib.csdn.net/base/python) |               | 中等     | 好         | 中等     | CNN/RNN      | [Linux](http://lib.csdn.net/base/linux), OSX | 难           |
+| MXNet      | c++/cuda                                           |               | 快       | 好         | 全面     | CNN          | 所有系统                                     | 中等         |
+| `Torch`    | `c/lua/cuda`                                       |               | `快`     | `好`       | `全面`   | `CNN/RNN`    | `Linux, OSX`                                 | `中等`       |
+| Theano     | python/c++/cuda                                    |               | 中等     | 好         | 中等     | CNN/RNN      | Linux, OSX                                   | 易           |
+
+### cntk
+
+#### 安装
+
+
 
 ### tensorflow
 
@@ -60,12 +67,6 @@ Google开源的其第二代深度学习技术——被使用在Google搜索、�
 - 通过变量（variable）维护状态（也即权值）
 - 使用feed和fetch可以为任意的操作赋值或者从其中获取数据
 
-
-
-#### 参考
-
-[极客学院tensorflow教程](http://wiki.jikexueyuan.com/project/tensorflow-zh/get_started/basic_usage.html)
-
 ---
 
 ### mxnet
@@ -92,12 +93,6 @@ pip install mxnet
 array([[ 3.,  3.,  3.],
        [ 3.,  3.,  3.]], dtype=float32)
 ```
-
-#### 参考
-
-[MxNet官方安装指南](http://mxnet.io/get_started/install.html)
-
-[MxNet官方教程](http://mxnet.io/tutorials/index.html)
 
 ---
 
@@ -207,7 +202,27 @@ If you also see this output at the bottom of your terminal, congraulations! You 
 
 //待完善
 
-#### 参考
+### keras
+
+#### 安装
+
+
+
+#### 使用
+
+## 参考
+
+### tensorflow
+
+[极客学院tensorflow教程](http://wiki.jikexueyuan.com/project/tensorflow-zh/get_started/basic_usage.html)
+
+### mxnet
+
+[MxNet官方安装指南](http://mxnet.io/get_started/install.html)
+
+[MxNet官方教程](http://mxnet.io/tutorials/index.html)
+
+### torch
 
 [Pytorch深度学习:60分钟快速入门](https://zhuanlan.zhihu.com/p/25572330)
 

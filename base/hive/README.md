@@ -636,6 +636,14 @@ from
 # 运行的时候会根据appid、serverid的不同值自动进入相应的分区中
 ```
 
+> 但要注
+>
+> ```shell
+> Dynamic partition cannot be the parent of a static partition ''xsdnerrcode'';
+> ```
+>
+> 
+
 ##### 字段操作
 
 ###### 添加列
@@ -645,6 +653,10 @@ alter table $tbl add columns(col_name string comment 'this is comment');
 ```
 
 > 注意hive不支持直接添加列到指定位置，解决方案是先添加列，然后再修改列到指定的位置
+>
+> ```mysql
+> alter table $tbl change col_name newcol_name string [after x][first];
+> ```
 
 添加列并设置为分区列：
 
@@ -656,6 +668,7 @@ alter table $tbl add columns(col_name string comment 'this is comment');
 
 ```mysql
 alter table $tbl change col_name newcol_name string [after x][first];
+#在修改列名的过程中可以改变列的位置
 ```
 
 ###### 删除列
@@ -663,6 +676,12 @@ alter table $tbl change col_name newcol_name string [after x][first];
 ```mysql
 alter table $tbl drop [column] column_name;
 ```
+
+> 备注：使用此种方法并不能删除列，具体的列删除方法[参考](https://stackoverflow.com/questions/34198114/alter-hive-table-add-or-drop-column),只能使用列替换的方式进行删除
+>
+> ```mysql
+> ALTER TABLE emp REPLACE COLUMNS( name string, dept string);
+> ```
 
 ###### 替换列
 
@@ -1905,9 +1924,32 @@ rn2: 按照dept分组，
 
 ###### [lag/lead](http://lxw1234.com/archives/2015/04/190.htm)
 
-LAG(col,n,DEFAULT) 用于统计窗口内往上第n行值,第一个参数为列名，第二个参数为往上第n行（可选，默认为1），第三个参数为默认值（当往上第n行为NULL时候，取默认值，如不指定，则为NULL）
+lag
 
+```
+LAG(col,n,DEFAULT) 用于统计窗口内往上第n行值,第一个参数为列名，第二个参数为往上第n行（可选，默认为1），第三个参数为默认值（当往上第n行为NULL时候，取默认值，如不指定，则为NULL）
+```
+
+```mysql
+select guid,
+    ts,
+    row_number() over (partition by guid order by ts) ts_order1,
+    lag(ts,1) over (partition by guid order by ts) ts_order2
+from shoulei_bdl.bl_shoulei_event_fact
+where ds='20180615' and appid='45' and type='launch' and attribute1='forground'
+    and cv='5.60.2.5510'
+limit 100;
+```
+
+ lead
+
+```
 LEAD(col,n,DEFAULT) 用于统计窗口内往下第n行值,第一个参数为列名，第二个参数为往下第n行（可选，默认为1），第三个参数为默认值（当往下第n行为NULL时候，取默认值，如不指定，则为NULL）
+```
+
+```mysql
+
+```
 
 ###### [first_value/last_value](http://lxw1234.com/archives/2015/04/190.htm)
 
@@ -1976,7 +2018,7 @@ select sort_array(array(5,1,2,3,null)); # [null,1,2,3,5]
 select sort_array(array("a","b","q","d","e")); #["a","b","d","e","q"]
 ```
 
-数组的最大值和最小值
+数组最大值和最小值(不展开)
 
 ```mysql
 # 数组最大值
@@ -1984,7 +2026,8 @@ select sort_array(array(2,NULL,1))[size(array(2,NULL,1))-1];
 select sort_array(arr1)[size(arr1)-1];
 
 # 数组最小值
-select a2,if(sort_array(a2)[0] is NULL,sort_array(a2)[1],sort_array(a2)[0]) from xmp_data_mid.high_test;
+select a2,if(sort_array(a2)[0] is NULL,sort_array(a2)[1],sort_array(a2)[0]) 
+from xmp_data_mid.high_test;
 ```
 
 数组均值、中位数、最大值、最小值
@@ -2013,7 +2056,20 @@ lateral view explode(a1)etd as ed
 group by id;
 ```
 
+> 经过explode拆分的列可以直接参与select部分的计算，方法2主要用于验证
 
+数组中元素出现的个数
+
+```mysql
+# 展开式
+select
+    id
+    ,ed
+    ,count(*)
+from xmp_data_mid.high_test
+lateral view explode(a1)ed as ed
+group by id,ed;
+```
 
 ##### 字典操作
 
@@ -2074,12 +2130,14 @@ insert into xmp_data_mid.map_test select 'vvvv',b from xmp_data_mid.map_test;
 
 ```mysql
 # 从json字符串中取值
+
 # 方法1：get_json_object
 get_json_object(string json_string, string path)
 # select a.timestamp, get_json_object(a.appevents, ‘$.eventid’), get_json_object(a.appenvets, ‘$.eventname’) from log a;
 
 # 方法2：json_tuple
-select a.id,b.* from struct_test a lateral view json_tuple('{"name":"zhou","age":30}','name','age')b as f1,f2;
+select a.id,b.* from xmp_data_mid.struct_test a 
+lateral view json_tuple('{"name":"zhou","age":30}','name','age')b as f1,f2;
 ```
 
 > 注意json字符串不能连续的取值，要用以下的方式：
@@ -2122,6 +2180,48 @@ select xl2_json_map_habbo('{"userid":"228771123","is_year":"0","tq_id":"04","swi
   "red":取redbao的结果，
   "new":取isnew的结果
 }
+```
+
+==例子==
+
+ ```txt
+# 数据形式如下:
+f1  f2  '[{"name":"张一","age":10,"sex":"girl"},{"name":"李一","age":12,"sex":"boy"}]'
+f3  f4  '[{"name":"张二","age":10,"sex":"girl"}]'
+f5  f6  '[{"name":"张三","age":10,"sex":"girl"},{"name":"李三","age":12,"sex":"boy"}]'
+
+
+# 要解析成的格式
+f1	f2 张一	10 girl
+f1	f2 李一	12 boy
+f3	f4 张二	10 girl
+f5	f6 张三	10 girl
+f5	f6 李三	12 boy
+ ```
+
+> 解决方案1：正则分割
+
+```mysql
+# split的分割符合支持正则，也就是支持完整的正则，包含断言
+select split('{"name":"张一","age":10,"sex":"girl"},{"name":"李三","age":12,"sex":"boy"}','(?<=\\}),');
+```
+
+> 解决方案2：展开合并
+
+```mysql
+
+```
+
+> 解决方案3：Streaming
+
+```mysql
+
+```
+
+> 解决方案4：本地解析
+
+```mysql
+
 ```
 
 #### UDF
@@ -2332,7 +2432,7 @@ order by
     t;  # 此处的t不能换成from_unixtime(cast(ts as int),'yyyyMMdd HH:mm:ss')，也不能换成ts
 ```
 
-
+> 在orderby中可以使用别名
 
 #### url解析
 
@@ -2603,7 +2703,7 @@ lateral view explode(tags)t1 as tag0
 # 列出相等
 SELECT group_concat(town) FROM `players` group by town;
 
-#　列出所有
+# 列出所有
 SELECT group_concat(town)　FROM players;
 ```
 
@@ -2619,6 +2719,8 @@ SELECT group_concat(town)　FROM players;
 select s1,collect_set(s3) from high_test group by s1;
 ```
 
+> 使用这种方式要注意数据和元素的对应关系，即键数组和值数组中的元素释放一一对应
+
 ###### group by sum(if)
 
 ```mysql
@@ -2632,12 +2734,298 @@ group by s1,
 	if(a1[0]>'d','>d','<d');
 ```
 
-> 这个函数针对数字型
+> 这个函数主要针对数字型
+
+###### inner join
+
+```mysql
+select a.id,a.f1,b.f2,c.f3 
+(select id,f1 from tbl where flag='xx')a
+inner join 
+(select id,f2 from tbl where flag='yy')b
+on a.id=b.id
+inner join 
+(select id,f3 from tbl where flag='zz')c
+on a.id=c.id;
+```
+
+> 这种方法主要针对字符串这种类型
 
 **例子**
 
 ```mysql
 
+```
+
+#### 分布
+
+分布其实也是指定时间内的频次统计，分为宽格式和长格式两种方式
+
+##### 宽格式
+
+```mysql
+select
+    cdays
+    ,count(*)
+    ,collect_set(guid)
+from
+(
+    select 
+        guid
+        ,count(distinct ds) as cdays
+    from
+        shoulei_bdl.bl_shoulei_event_fact
+    where ds>='20180601' and ds<='20180612' and appid='45'
+        and type='other'
+        and attribute1='per_integral_task_click'
+        and extdata_map['stat']='get'
+    group by guid
+)a
+group by cdays;
+```
+
+> 备注:原始low版
+>
+> ```mysql
+> select
+>     cdays
+>     ,count(*)
+>     ,collect_set(guid)
+> from
+> (
+>     select 
+>         guid
+>         ,count(*) as cdays
+>     from
+>     (
+>         select 
+>             distinct ds,
+>             guid
+>         from
+>             shoulei_bdl.bl_shoulei_event_fact
+>         where ds>='20180601' and ds<='20180612' and appid='45'
+>             and type='other'
+>             and attribute1='per_integral_task_click'
+>             and extdata_map['stat']='get'
+>     )a
+>     group by guid
+> )b
+> group by cdays;
+> ```
+
+##### 长格式
+
+```mysql
+select
+    cdays
+    ,users
+    ,uid
+from
+(
+    select
+        cdays
+        ,count(*) as users
+        ,collect_set(userid) as uids 
+    from
+    (
+        select 
+            userid
+            ,count(distinct ds) as cdays
+        from
+            shoulei_bdl.bl_shoulei_event_fact
+        where ds>='20180601' and ds<='20180603' and appid='45'
+            and type='other'
+            and attribute1='per_integral_task_click'
+            and extdata_map['stat']='get'
+        group by userid
+    )a
+    group by cdays
+)b
+lateral view explode(uids)ud as uid;
+```
+
+#### 错位间隔
+
+错位间隔问题主要处理行之间的差值，主要在已排序的情况下，用以计算指定条件下的间隔计算问题,该技能可用于分析用户log。（扩展到mysql实现）
+
+| id   | s1   | rn1(排序生成) |
+| ---- | ---- | ------------- |
+| b1   | 1    | 1             |
+| a1   | 4    | 2             |
+| a1   | 6    | 3             |
+| a1   | 8    | 4             |
+| c1   | 12   | 5             |
+| b1   | 20   | 6             |
+| a1   | 32   | 7             |
+| c1   | 45   | 8             |
+| a1   | 67   | 9             |
+| a1   | 99   | 10            |
+
+> ```mysql
+> select * from xmp_data_mid.tbl_a where dtask='dur';
+> # 后面为了方便，扩展了rn1字段到另外的一张表：xmp_data_mid.tbl_a_view
+> ```
+
+1、两个a1之间插入的记录数
+
+>  解题思路：排序后选出所有的a1值，下面的减上面的
+
+```mysql
+select
+    id
+    ,rn1
+    ,rn1-rn2 as pos_diff
+from
+(
+    select
+        id
+        ,rn1
+        ,lag(rn1,1,0) over(order by rn1) as rn2
+    from
+    (
+        select
+            id
+            ,rn1
+        from
+        (
+            select id
+                ,s1
+                ,row_number() over(order by cast(s1 as int)) as rn1
+            from
+                xmp_data_mid.tbl_a
+            where dtask='dur'
+        )a
+        where id='a1'
+    )b
+)c
+where rn2!=0;
+```
+
+> 数据结果：
+>
+> ```
+> a1      3       1
+> a1      4       1
+> a1      7       3
+> a1      9       2
+> a1      10      1
+> ```
+
+2、两个a1之间的s1之差
+
+```mysql
+select
+    id
+    ,rn1
+    ,rn1-rn2 as pos_diff
+    ,s1
+    ,s2
+    ,s1-s2 as value_diff
+from
+(
+    select
+        id
+        ,rn1
+        ,lag(rn1,1,0) over(order by rn1) as rn2
+        ,s1
+        ,lag(s1,1,0) over(order by rn1) as s2
+    from
+    (
+        select
+            id
+            ,s1
+            ,rn1 
+        from
+        (
+            select id
+                ,s1
+                ,row_number() over(order by cast(s1 as int)) as rn1
+            from 
+                xmp_data_mid.tbl_a
+            where dtask='dur'
+        )a
+        where id='a1'
+    )b
+)c
+where rn2!=0;
+```
+
+> 查询结果：
+>
+> ```
+> a1      3       1       6       4       2.0
+> a1      4       1       8       6       2.0
+> a1      7       3       32      8       24.0
+> a1      9       2       67      32      35.0
+> a1      10      1       99      67      32.0
+> ```
+
+3、两个a1之间没有c1插入情况下的插入记录数
+
+```mysql
+select
+    c.id
+   ,c.s1
+   ,c.s1_pre
+   ,c.s1-c.s1_pre
+   ,c.rn1
+   ,c.rn1_pre
+   ,c.rn1-c.rn1_pre as pos_diff
+from
+(
+    -- 原值选择
+    select 
+        id
+        ,s1
+        ,lag(s1,1,0) over(order by rn1) as s1_pre
+        ,rn1
+        ,lag(rn1,1,0) over(order by rn1) as rn1_pre
+    from 
+        xmp_data_mid.tbl_a_view
+    where id='a1'
+)c
+left join
+(
+    select
+        distinct a.rn1 as rn1
+    from
+    (
+        -- 原值条件准备
+        select 
+            rn1
+            ,lag(rn1,1,0) over(order by rn1) as rn1_pre
+        from 
+            xmp_data_mid.tbl_a_view
+        where id='a1'
+    )a
+    full join
+    (
+        -- 过滤
+        select 
+            rn1
+        from 
+            xmp_data_mid.tbl_a_view
+        where id='c1'
+    )b
+    where a.rn1_pre<b.rn1 and b.rn1<a.rn1
+        and a.rn1_pre!=0  
+)d
+on c.rn1=d.rn1
+where d.rn1 is null and c.rn1_pre!=0;
+```
+
+> 查询结果：
+>
+> ```
+> a1      6       4       2.0     3       2       1
+> a1      8       6       2.0     4       3       1
+> a1      99      67      32.0    10      9       1
+> ```
+
+4、两个a1之间没有c1插入情况下的s1之差
+
+```mysql
+参见3，完全实现
 ```
 
 ### 优化
@@ -2663,6 +3051,15 @@ group by s1,
 | hive.auto.convert.join.noconditionaltask.size = 250000000; |        |      |
 | set hive.exec.mode.local.auto=true;      | 开启本地模式 |      |
 |                                          |        |      |
+
+```shell
+In order to change the average load for a reducer (in bytes):
+  set hive.exec.reducers.bytes.per.reducer=<number>
+In order to limit the maximum number of reducers:
+  set hive.exec.reducers.max=<number>
+In order to set a constant number of reducers:
+  set mapreduce.job.reduces=<number>
+```
 
 设置样例
 

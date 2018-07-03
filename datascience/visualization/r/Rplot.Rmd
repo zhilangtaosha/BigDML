@@ -1,0 +1,204 @@
+---
+title: "Rmarkdown"
+author: "yjm"
+date: "2016年4月1日"
+output: html_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+---
+
+## 基本使用
+
+```{r}
+  summary(cars)
+  head(cars)
+```
+
+## R的绘图系统
+### 1. 基本绘图系统
+> 艺术家的绘图板，需要实现计划，直观地实时反映绘图和分析数据的逻辑，先绘制基本图，然后再在此基础上执行修饰和添加，主要使用于二维绘图系统
+> plot,hist,boxplot,points,lines,text,title,axis
+> 基本绘图系统+屏幕设备
+
+```{r echo=FALSE}
+
+x1 <- 0:100
+x2 <- x1 * 2 * pi / 100
+Y = sin(x2)
+par(family='STXihei') # 这句是为了解决图像中中文乱码问题
+plot(x2, Y, type='l', main='正弦曲线', xlab='x轴', ylab='y轴') 
+  
+
+plot(cars,type='o',xlab='ha',ylab='z',col='red')
+plot(airquality$Wind,airquality$Temp)
+
+boxplot(airquality$Temp)
+
+hist(airquality$Wind)
+
+with(subset(airquality,Month=c(5,7,9)),plot(Wind,Temp,col=factor(Month)))
+
+with(subset(airquality,Month %in% c(5,7,9)),plot(Wind,Temp,col=factor(Month)))
+
+#拟合
+fit<- lm(Temp~Wind,airquality) #线性拟合
+abline(fit,lwd=2)              # 绘制任意角度的直线
+#labels(c("11"))
+#legend("topright",legend=c("red","blue","yellow"),pch=12,col=factor(airquality$Month))  # 图例设置很麻烦
+#title(main="this is title")
+
+```
+
+
+
+### 2. latice绘图系统
+> 一次成型，特别使用与观测变量间的交互，在变量z的不同水平，变量y是如何随变量x变化的
+>xyplot
+
+```{r}
+library(lattice)
+xyplot(Wind~Temp,data=airquality)
+
+airquality$Month<-factor(airquality$Month)
+q=xyplot(Wind~Temp|Month,data=airquality,layout=c(5,1))
+summary(q)
+
+# panel
+xyplot(Wind~Temp|Month,data=airquality,layout=c(5,1),
+panel=function(x,y){
+  panel.xyplot(x,y)
+  panel.abline(v=mean(x),h=mean(y),lty=2)
+  panel.lmline(x,y,col='red')
+  })
+
+```
+
+
+### 3. ggplot2绘图系统
+>语法作图，图可以被分解成不同的属性,不同属性的词，将层组合在一起
+
+`一个图层由一下部分组成：`
+1. 数据
+2. 映射层：数据和几何对象及图像属性的映射
+3. 统计变换
+4. 几何对象
+5. 位置调整
+
+而图是由图层、标度、坐标系统及分面组成
+
+> qplot
+
+```{r}
+library(ggplot2)
+
+# airquality
+qplot(Wind,Temp,data=airquality,color=I("red"),shape=Month,size=I(4),xlab = "x",ylab="y",main="title")
+
+qplot(Wind,Temp,data=airquality,color=Month,geom = c("point","smooth"))  # 绘制点图并且平滑
+
+qplot(Wind,Temp,data=airquality,facets = .~Month)  # 行列分面
+
+qplot(Wind,data=airquality,fill=Month,geom = c("density","density"),color=Month)
+
+
+# diamonds
+dsmall<- diamonds[sample(nrow(diamonds),100),]
+qplot(carat,price,data=dsmall,shape=cut,colour=color)
+qplot(carat,price,data=diamonds,alpha=I(1/200))
+qplot(color,price/carat,data=dsmall,geom = 'boxplot')
+
+```
+
+
+>ggplot2
+
+```{r}
+library(ggplot2)
+
+ggplot(airquality,aes(Wind,Temp))+
+  geom_point(aes(color=factor(Month)),alpha=0.4,size=5)+
+  geom_smooth()+
+  stat_smooth(method="lm",se=FALSE,aes(col=Month))+
+  theme_classic()
+
+
+```
+
+
+**注意事项**
+1. 自动化（避免手工操作下载数据集）
+2. 版本控制
+3. 深入了解的函数，保存整个数据和分析的过程
+
+> 信息层显级别分差
+> 补充的材料和代码等资料
+
+**数值变量**
+- 一个数值变量
+*柱状图（横坐标相当于数轴，可能的观测值，纵坐标相当于出现的频次）、点图、箱图（中位数)*
+1 绘制箱图
+
+```{r}
+  #data_o=read.csv("E:\\Code\\SVN\\trunk\\Python\\Projects\\calc_exp_avg\\data",head=FALSE)
+  #data_s=read.csv("E:\\Code\\SVN\\trunk\\Python\\Projects\\calc_exp_avg\\result",header = FALSE)
+  #x <- as.numeric(data_o[,1])
+  #y <- as.numeric(data_s[,1])
+  #data=cbind(x[1:2603],y)
+  #colnames(data) <- c('orgin','smooth')
+  #plot(data$origin,data$smooth)
+  #par(mfrow=c(3,1))
+  #hist(x,main = 'origin')
+  #hist(y,main = 'smooth')
+  #title("smooth contrast")
+
+```
+
+- 两个数值变量
+*散点图*
+
+
+
+**分类变量**
+- 一个分类变量
+*频率表和条形图*
+- 两个分类变量的关系
+*分段条形图和马赛克图*
+- 一个数值型变量和一个分类变量的关系
+*并排箱图*
+
+
+# 专题学习
+## 拟合
+### 局部多项式拟合
+```{r}
+  library(ggplot2)
+  library(mgcv)
+  x<-1:nrow(data_o)
+  data_o$x=x
+  #qplot(x,V1,data=data_o,geom=c("line","smooth"))
+  qplot(x,V1,data=data_o)+
+    #ggplot(data_o,aes(x,V1,colour="yellow")+
+    geom_point(alpha=1/10)+
+    geom_line()+
+    geom_smooth(colour='red',method = "gam",formula = y~s(x))+  # 平滑
+    geom_smooth(colour='blue',method='lm')+  # 线性拟合
+    geom_smooth(colour='yellow')+            # 局部回归
+    geom_smooth(colour='darkblue',method = "lm",formula = y~poly(x,15))  # 多项式拟合
+
+
+
+  # #测试失败
+  #head(cars)
+  #plot(data_o$x,data_o$V1)
+
+  #model1=loess(x~V1,data=data_o,span=14)
+  #lines(data_o$x,model1$fit,col='red',lty=1,lwd=1)
+
+  #model2=loess(x~V1,data=data_o,span=18)
+  #lines(data_o$x,model2$fit,col='blue',lty=2,lwd=2)
+
+```

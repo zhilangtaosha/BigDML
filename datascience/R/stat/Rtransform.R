@@ -1,7 +1,9 @@
-# R transform
+# R transform 数据转换
+library(ggplot2)
 library(reshape2)
 
-#getwd()
+# 获取和设置目录
+getwd()
 #setwd('E:/OneDrive - std.uestc.edu.cn/Code/Git/R/study/stat')
 
 # 演示数据加载
@@ -20,7 +22,7 @@ fun.load_example_data <- function()
                              4   M    11.5  13.4  12.9
                              ')
   olddata_wide$subject <- factor(olddata_wide$subject)  # Make sure the subject column is a factor（下同）
-  
+
   olddata_long <- read.table(header=TRUE, text='
                              subject sex condition measurement
                              1   M   control         7.9
@@ -37,39 +39,39 @@ fun.load_example_data <- function()
                              4   M     cond2        12.9
                              ')
   olddata_long$subject <- factor(olddata_long$subject)
-  
+
 }
 
 
-# 揉数据(以xmp数据为例)
+# 揉数据(以xmp数据卫卫显卡和rmvb关联为例)
 fun.datatranform_stat2<-function()
 {
-  
+
   #分组汇总
-  sstar <- read.table('data/wwxianka',header = T)
+  sstar <- read.table('data/wwxianka.data',header = T,sep='\t')
   colnames(sstar) <- c('date','channel','dpv','duv')
   sstar$date <-as.Date(as.character(sstar$date),'%Y%m%d')
   sstar_sort <- sstar[order(sstar$channel,na.last = FALSE),]
   g<-ggplot(sstar_sort,aes(x=date))
   g+geom_line(aes(y=duv,colour=channel))+facet_grid(channel~.,scales = 'free_y')+geom_point(aes(y=duv))
   print(g)
-  
-  
+
+
   # 行列互转
-  wwrmvb<-read.table("data/rmvbres",header = T,fileEncoding="utf8") #stringsAsFactors=FALSE, )
+  wwrmvb<-read.table("data/rmvbres.data",header = T,fileEncoding="utf8") #stringsAsFactors=FALSE, )
   wwrmvb$date <-as.Date(as.character(wwrmvb$date),'%Y%m%d')
-  
+
   ## 绘图
   g<-ggplot(wwrmvb,aes(x=date))
   g+geom_line(aes(y=cnt,colour=player))+facet_grid(player~.,scales = 'free_y')
   print(g)
-  
+
   ## 结果转换和保存
   res<-t(dcast(wwrmvb,formula = player~date))
-  write.table(res,file='data/wwrmvb_tr',row.names = T,col.names=F,quote = F,fileEncoding='utf8',sep='\t')
-  res<-read.table("data/wwrmvb_tr",header = T,fileEncoding="utf8") #stringsAsFactors=FALSE, )
+  write.table(res,file='data/wwrmvb_tr.data',row.names = T,col.names=F,quote = F,fileEncoding='utf8',sep='\t')
+  res<-read.table("data/wwrmvb_tr.data",header = T,fileEncoding="utf8") #stringsAsFactors=FALSE, )
   write.csv(res,file='data/wwrmvb_tr.csv',row.names = F,quote = F,fileEncoding='utf8')
-  
+
 }
 
 
@@ -84,12 +86,10 @@ fun.datatranform_stat3<-function()
   res=tmp[c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")] # 选取指定的列
 
   #--- 最后的结果形式如下
-  '''
-                Mon      Tue      Wed      Thu      Fri      Sat      Sun
-    201606       NA       NA       NA       NA       NA       NA 43271933
-    201607 43849688 44276770 44819289       NA 44190928       NA 46551557
-    201608 43477346 45188957 44567973 44699149 43650183 45116368 46840558
-  '''
-  
+  #
+  #              Mon      Tue      Wed      Thu      Fri      Sat      Sun
+  #  201606       NA       NA       NA       NA       NA       NA 43271933
+  #  201607 43849688 44276770 44819289       NA 44190928       NA 46551557
+  #  201608 43477346 45188957 44567973 44699149 43650183 45116368 46840558
 
 }

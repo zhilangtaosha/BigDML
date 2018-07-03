@@ -51,13 +51,9 @@
 
 ![条形图分类](http://tuling56.site/imgbed/2018-03-14_205401.png)
 
-###### 例子
-
 
 
 ##### 柱状图
-
-###### 例子
 
 数据
 
@@ -67,13 +63,17 @@
 | 2017 | 1    | 231  | 23   |      |
 | 2018 | 232  |      | 232  | 57   |
 
-横柱图
+###### 横柱图
 
 ![横柱图](http://tuling56.site/imgbed/2018-03-14_210012.png)
 
-堆叠柱图
+###### 堆叠柱图
 
 ![堆叠柱图](http://tuling56.site/imgbed/2018-03-14_210115.png)
+
+堆积柱图若考虑整体的成分构成，而不是随着年份变话的话，可以考虑使用南丁格尔玫瑰图
+
+![南丁格尔玫瑰图](http://tuling56.site/imgbed/2018-06-20_161044.png)
 
 ##### 线性图
 
@@ -110,25 +110,84 @@
 
 ##### 确定关系
 
+确定是什么关系
+
 ##### 选择图表
+
+![反映关系的图标类型](http://tuling56.site/imgbed/2018-06-20_142050.png)
 
 ### 实现
 
-#### python-matplotlib
+#### 编程实现
 
-//待补充
+##### python
 
-#### r-ggplot2
+主要包含：matplotlib、seaborn、plotly、bokeh
 
-//待补充
+![python数据可视化图](http://tuling56.site/imgbed/2018-06-20_141901.png)
 
-#### js-echarts...
+###### matplotlib
 
-//待补充
+###### seaborn
 
-#### excel-manual、vba
+###### plotly
+
+###### bokeh
+
+##### r
+
+主要包含：ggplot2、Lattice
+
+###### ggplot2
+
+##### js
+
+主要包含:echarts、plotly、d3.js
+
+###### echarts
+
+###### plotly
+
+###### d3.js
+
+#### 无需编程
+
+##### excel
+
+主要包含：manual、vba
 
 //excel各种类型的图标和所适合的表达关系要逐渐熟悉掌握
+
+##### PowerBI
+
+商业智能:微软出品，包含全套的组件
+
+##### FineBI
+
+商业智能:打开客户端后通过web页面访问
+
+##### Tableau
+
+商业智能:客户端软件实体展现，感觉用着比FineBI好用
+
+### 实战
+
+#### 特殊绘图
+
+##### 四维绘图
+
+![思维绘图study.2d_2i_down](http://tuling56.site/imgbed/2018-06-26_110254.png)
+
+期望输出的绘图
+
+![期望绘图](http://tuling56.site/imgbed/2018-06-26_110907.png)
+
+绘图说明：
+
+> 1. 横坐标时间维不变
+> 2. 纵坐标指标维可自由调整
+
+也可以单独绘图，最后对绘图的结果进行拼接，而不一次性的给出绘图结果
 
  ##参考
 
@@ -138,7 +197,11 @@
 
   [陈为《数据可视化》书评及思维导图](https://www.cnblogs.com/zhangdi/p/3735125.html)
 
+  [talkingdata移动互联网大数据平台](https://www.talkingdata.com/)
+
 - 进阶
+
+  //补充绘制图表的基本原理
 
 - 实现
 
