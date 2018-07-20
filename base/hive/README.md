@@ -1,4 +1,4 @@
-## HIVE积累
+## HIVE笔记
 
 [TOC]
 
@@ -148,11 +148,10 @@ map数据的插入
 select map("key1","val1") from test.dual; 
 
 # 测试1：
-insert into table xmp_data_mid.map_test values('hahh',map("key1","val1"));
-# 则会报错：Unable to create temp file for insert values Expression of type TOK_FUNCTION not supported in insert/values
+insert into table xmp_data_mid.map_test values('hahh',map("key1","val1"),'vvv');
+# 则会报错：Unable to create temp file for insert values Expression of type TOK_FUNCTION not supported in insert/values,也即不支持插入原生类型
 # 更改成：
-insert into table xmp_data_mid.map_test select 'hahh',map("key1","val1") # from test.dual;
-
+insert into table xmp_data_mid.map_test select 'hh',map("key1","val1"),'v' # from test.dual;
 
 
 # 测试2：
@@ -160,11 +159,31 @@ insert into table xmp_data_mid.map_test select 'hahh','{"key2":"val2"}';
 # 则会报错：
 # FAILED: SemanticException [Error 10044]: Line 1:18 Cannot insert into target table because column number/types are different 'map_test': Cannot convert column 1 from string to map<string,string>.
 # 更改成：
-insert into table xmp_data_mid.map_test select 'hahh',str_to_map('{"key2":"val2"}');
-# 插入结果
-hahh    {"{\"key2\"":"\"val2\"}"}
+insert into table xmp_data_mid.map_test select 'hahh',str_to_map('{"key2":"val2"}'),'v';
+hahh    {"{\"key2\"":"\"val2\"}"}  # 插入结果(str_to_map转换的时候注意中括号等要去除)
+# 进一步修正： 
+insert into table xmp_data_mid.map_test 
+select '{"k2":"v2"}',str_to_map(regexp_replace('{"k2":"v2"}','"|\\}|\\{','')),'{k2:v2}';
+@@ 查询验证：
+select get_json_object(a,'$.k2'),b['k2'],get_json_object(c,'$.k2') from xmp_data_mid.map_test where c='{k2:v2}';  # 结果:v2      v2      NULL,也就是说在插入的是json的key和v一定要带字符串
 
-insert into table xmp_data_mid.map_test select 'hahh',str_to_map('key3:val3,key4:val4');
+
+# 测试3：
+insert into xmp_data_mid.map_test select b,b,b from xmp_data_mid.map_test where c='{k2:v2}';
+# map的导出形式插入到string时，map会进退化成：k2:v2   {"k2":"v2"}     k2:v2
+
+
+# 测试4：
+insert into table xmp_data_mid.map_test select 'hahh',str_to_map('k6:v6,k8:v8'),'v8';
+insert into table xmp_data_mid.map_test
+select
+    'a'
+    ,str_to_map(concat_ws(',',concat('id:',channel_id),concat('code:',channel_code)))
+    ,'ccc'
+from 
+    sl_channel_id_type
+limit 10;
+
 ```
 
 > map字段插入空:
@@ -930,7 +949,8 @@ select regexp_extract('dui你ada 大坏2232！ 蛋','([\\u4e00-\\u9fa5]+)',1) fr
 
 # 提取文件后缀(在shell中\\要变成\\\\)
 select lower(regexp_extract(xl_urldecode(xl_urldecode(filename)),'(.*)\\.(.*)',2)); -- rmvb
-select regexp_extract('zhang.mei.nv.rmvb','(.?)\\.(.*)',2);  -- mei.nv.rmvb  (采用了非贪婪模式)
+select regexp_extract('zhang.mei.nv.rmvb','(.?)\\.(.*)',2);  -- mei.nv.rmvb  (采用非贪婪模式)
+select regexp_extract('zhang.mei.nv.rmvb','(.*)\\.(.*)',2);  -- rmvb  (采用贪婪模式)
 ```
 
 ##### 正则替换
@@ -1164,13 +1184,22 @@ select a.guid,a.eventid from xlj_test_event a left semi join xlj_test_user b on 
 select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active b  on (a.pid=b.pid) where a.minds=20160101 and b.ds=20160109 limit 10;
 ```
 
+==join中的on和where执行顺序==
+
+```mysql
+# inner join中on和where的顺序对执行结果无影响
+select * form tab1 left join tab2 on (tab1.size = tab2.size and tab2.name='AAA');# 在on中判断
+```
+
+![on和where顺序](http://tuling56.site/imgbed/2018-07-13_163312.png)
+
 #### 分组
 
 ##### grouping sets
 
 ```mysql
-group by xx
-grouping sets ((),(xx,xxx,vvv),(xx,xx))
+group by a,b,c
+grouping sets ((),(a,b,c),(a,c))
 ```
 
 ##### with cube
@@ -1347,6 +1376,14 @@ select unhex(regexp_replace('%E4%B8%AD%E5%9B%BD','%','')) from test.dual;
 ```mysql
 regexp_extract(string subject, string pattern, int index)
 select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
+```
+
+字符串拼接
+
+```mysql
+select concat('foo','bar');
+select concat_ws('_',array('1','2','3')); #可以直接拼接数组
+select concat_ws('_',collect_list(xxx));
 ```
 
 ##### 数字
@@ -1971,9 +2008,259 @@ first_value取分组内排序后，截止到当前行，第一个值,last_value�
 
 ```
 
+
+#### UDF
+
+udf和streaming的区别在于udf必须是在hadoop平台上的文件，而streaming要求的则是本地文件
+
+##### 编解码
+
+原生
+
+```shell
+hex/unhex（自带）
+数据put的时候，二进制数据乱码问题
+
+md5
+计算md5值（自带）
+```
+
+平台提供
+
+```mysql
+# 已经编译进hive源码，不需要再加载jar包
+xl_urldecode() 
+
+# 需要先加载jar包，字符串中有空格等的风险，如url参数传递，通常编码后再传
+uridecode()/uriencode()函数
+add jar $KK_WORKSPACE/bin/jar/com.xunlei.kk.feature.udf.jar
+create temporary function uridecode as 'com.xunlei.kk.feature.udf.UDFURIDecoder';
+create temporary function uriencode as 'com.xunlei.kk.feature.udf.UDFURIEncoder';
+```
+
+自定义
+
+```mysql
+# 使用python streaming处理,或者本地处理
+```
+
+##### 类型转换
+
+**str->map**
+
+> str_to_map(strings ,delim1,delim2), delin1键值对分隔符，delim2键值分隔符
+
+```mysql
+select str_to_map('k1:v1,k2:v2',',',':'); # {"k1":"v1","k2":"v2"}
+```
+
+**str->array**
+
+> split(strings,pattern)
+
+```mysql
+select split('5.2.4.1234','\\.');  # ["5","2","4","1234"]
+```
+
+**array->str**
+
+> concat_ws(delim,ARRAY arr)
+
+```mysql
+select concat_ws('_',fu5) from xmp_odl.xmpplaydur where ds='20170612' and hour=10 limit 10;
+select concat_ws('_',["5","2","4","1234"]);
+```
+
+以上均是自带的，以下是扩展：
+
+**array->map**
+
+```python
+# 比如k1,v1,k2,v2,其顺序依次是key,value,key,value,可以参考python-streaming实现
+a = [1, 2, 3, 4, 5, 6]
+b=list(zip( a[::2], a[1::2] )) # [(1, 2), (3, 4), (5, 6)]
+dict(b) #{1: 2, 3: 4, 5: 6}
+```
+
+##### 分析函数
+
+```mysql
+#计算数组中某个值出现的次数
+xl_array_count(array(b,b,a),string b); 
+```
+
+##### 反射Java
+
+hive中提供了reflect函数来调用Java现有库中的方法，调用方法如下：
+
+```mysql
+select reflect("类名","方法名",参数1,参数2,...);
+# 例如
+select reflect("java.lang.Math","max",2.6,9.8); #9.8
+select regexp_replace(reflect("java.util.UUID","randomUUID"),'-','');  
+```
+
+
+
+#### Streaming操作
+
+hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进程，外部进程从标准输入中读数据，然后将结果数据写入到标准输出。
+
+注意：
+
+> streaming过程使用到的文件都是本地文件，不需要上传到hadoop集群上
+
+优点：
+
+- 少数据量的复杂计算
+- 快速出结果
+- 几乎支持所有语言（bash/perl/python/java）
+
+缺点：
+
+- IO开销大，效率低
+
+##### 语句
+
+###### transform
+
+结合insert overwrite 使用transform
+
+```mysql
+add file python_streaming.py;
+select transform(substr(fu1,2,5),fu2,fu5,fu7,fip,finsert_time) 
+using 'python_streaming.py' 
+as (pid,mlint,flstr,sstr,fip,ftime)
+from xmp_odl.xmpplaydur where ds='$date' limit 1000;
+```
+
+> 可以直接将经过处理后的文件进行处理后导出到本地
+
+######  reduce
+
+```mysql
+add file t_stat_url_upload_split_mapper.py;
+from(
+    select iconv(furl,'gbk')  as furl,iconv(fip,'gbk') as fip,iconv(ftime,'gbk') as ftime
+    from kankan_odl.t_stat_url_upload
+    where ds='${date}'
+    cluster by fip
+)a
+insert overwrite table kankan_bdl.t_stat_url_upload_split partition(ds='${date}')
+reduce a.furl,a.fip,a.ftime
+using 't_stat_url_upload_split_mapper.py'
+as install,channel,peerid,version, package_name, installtype,fip,ftime ;
+```
+
+> 处理后插入到新表中
+
+#####  实现
+
+###### python
+
+```shell
+python实现
+```
+
+###### shell
+
+shell脚本：`hive_streaming.sh`
+
+```shell
+#!/bin/bash
+# substr(fu1,2,5),fu2,fu5,fu7,fip,finsert_time
+# 2A5F8   [3,0,8] ["5486","0","0"]    0,1,0   124.91.9.111    1517673596
+while read line;do
+    infos=($line)
+    echo -e -n "hahh:${infos[0]}\t${infos[1]}\t${infos[2]}\t${infos[3]}\t${infos[4]}\t"
+    ds=`date -d @${infos[5]} "+%Y-%m-%d"`
+    echo -e -n "${ds}\n"  
+done
+
+exit 0
+```
+
+hive语句：`hive_streaming.hql`
+
+```mysql
+-- 使用本地文件进行读取过滤，然后结果导出到本地
+-- 2A5F8   [3,0,8] ["5486","0","0"]   0,1,0   124.91.9.111    1517673596
+add file hive_streaming.sh; -- 加载streaming脚本
+add file ban_ver; -- 加载本地文件
+select transform(substr(fu1,2,5),fu2,fu5,fu7,fip,finsert_time)
+using 'hive_streaming.sh'
+as (pid,mlint,flstr,sstr,fip,ftime)
+from xmp_odl.xmpplaydur where ds='20180204' limit 10;
+```
+
+###### perl
+
+```perl
+perl实现
+```
+
+### 积累
+
+#### 细节
+
+##### 注释
+
+hql脚本注释
+
+```mysql
+# 单行注释
+--i'm comment(回车)
+select count(*) from dual;
+
+# 多行注释
+//暂时不支持
+```
+
+> 对比[mysql的注释](https://www.cnblogs.com/dapeng111/archive/2013/01/02/2842106.html)`xxx.sql`
+>
+> ```mysql
+> # 这是mysql的单行注释
+> select * from xx;
+> ```
+
+##### 中文别名
+
+```mysql
+select xx as `中文别名` from db.tbl;
+# 注意其中文别名要用反双引号括起来，而不是单引号或者双引号
+
+对于英文别名，直接写成 select xx as aliasxx,其中aliasxx不要再加引号
+```
+
+##### order by 字段
+
+order by 是最后执行的，若对列(包含计算列)没有起别名，则\_c0,\_c1,\_c2分别对应相应的列
+
+```mysql
+use shoulei_bdl;
+select 
+    ds,
+    guid,
+    eventname,
+    attribute1,
+    from_unixtime(cast(ts as int),'yyyyMMdd HH:mm:ss') as t # 此处是否起别名对结果无影响
+from 
+   vvvvv
+where 
+    ds='20180327' and appid='48' and cv rlike '^5.32'
+    and eventname!='ios_advertise' 
+order by 
+    ds,
+    guid,
+    t;  # 此处的t不能换成from_unixtime(cast(ts as int),'yyyyMMdd HH:mm:ss')，也不能换成ts
+```
+
+> 在orderby中可以使用别名
+
+#### 字典数组
 ##### 数组集合
 
-###### 函数一览
+函数一览
 
 | **Return Type** | **Name(Signature)**                    | **Description**                          |
 | --------------- | -------------------------------------- | ---------------------------------------- |
@@ -2071,7 +2358,7 @@ lateral view explode(a1)ed as ed
 group by id,ed;
 ```
 
-##### 字典操作
+##### 字典
 
 ###### map类型
 
@@ -2085,26 +2372,37 @@ group by id,ed;
 
 额外函数：
 
-| 函数名                 | 用法                                       | 备注            |
-| ------------------- | ---------------------------------------- | ------------- |
-| xl_map_get(map,key) | select nvl(m2["k1"],''),nvl(xl_map_get(m2,"k1"),'') from high_test; | 获取map中指定的key值 |
-| xl_map_tag(v,map()) | select xl_map_tag('push_new',map('^1ps232','1','.\*push.\*','2')); --2 |               |
-| xl_str_tag(x,x)     | 还有问题待升级                                  |               |
+| 函数名              | 用法                                                         | 备注                                               |
+| ------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
+| xl_map_get(map,key) | select nvl(m2["k1"],''),nvl(xl_map_get(m2,"k1"),'') from high_test; | 获取map中指定的key值                               |
+| xl_map_tag(v,map()) | select xl_map_tag('push_new',map('^1ps232','1','.\*push.\*','2')); --2 | 根据字段的值进行匹配，翻译成不同的值，类似维表翻译 |
+| xl_str_tag(x,x)     | 还有问题待升级                                               |                                                    |
 
 > ```mysql
 > # 查看key中是否含有某项
 > array_contains(map_keys(gameinfo),'wow')
+> 
+> # xl_map_tag使用（map的顺序对最后的结果影响很大）
+> xl_map_tag(lower($1),map(
+> 	 'dl_create.*','1',
+> 	 'play.*(start|end)','1',
+> 	 'search_start_1|search_1_submit|sniff_1_start|browser_web_pv','1',
+> 	 'pay_success','1',
+> 	 'push_click','1',
+>      ));
 > ```
 
-取值
+**取值**
 
 ```mysql
 select b['key1'] from xmp_data_mid.map_test;
 select if(b['key1'] is null,'kong',b['key1']) from xmp_data_mid.map_test;
 select nvl(b['key1'],'kong') from xmp_data_mid.map_test;
+
+# 如果map里嵌了一个map，则里面的map的是字符串，不能直接被查询
 ```
 
-转化
+**转化**
 
 ```mysql
 # 将字符串转化为map类型
@@ -2114,19 +2412,27 @@ select str_to_map('1=2&3=4','&','=')['1'];
 
 ```
 
-问题
+**合并和分解**
 
->  能不能将一个map中的数据导入到另一个map中？
+从map类型中选出指定的key，组成一个新的map
+
+```mysql
+//待完成
+```
+
+**插入**
 
 ```mysql
 # map类型可以直接插入到另一个map类型中
 insert into xmp_data_mid.map_test select 'vvvv',b from xmp_data_mid.map_test;
-# 如果map里嵌了一个map，则里面的map的是字符串，不能直接被查询
+
+# 组合普通字段成map格式插入到map类型中
+
 ```
 
-###### json字符串
+###### json格式
 
-取值
+**取值**
 
 ```mysql
 # 从json字符串中取值
@@ -2146,7 +2452,7 @@ lateral view json_tuple('{"name":"zhou","age":30}','name','age')b as f1,f2;
 > get_json_object(get_json_object(content,'$.ed'),'$.clickid') as clickid
 > ```
 
-转化
+**转化**
 
 ```mysql
 # json字符串转map对象（原生方法）
@@ -2167,7 +2473,7 @@ select xl2_json_map_habbo('{"userid":"228771123","is_year":"0","tq_id":"04","swi
 >
 > 将字符串str按照指定分隔符转换成Map，第一个参数是需要转换字符串，第二个参数是键值对之间的分隔符，默认为逗号`,`;第三个参数是键值之间的分隔符，默认为`=`（也有一说为`:`）
 
-合并
+**合并和分解**
 
 ```json
 {"redbao":'android','isnew':'new'}
@@ -2182,9 +2488,9 @@ select xl2_json_map_habbo('{"userid":"228771123","is_year":"0","tq_id":"04","swi
 }
 ```
 
-==例子==
+==例子-展开：==
 
- ```txt
+ ```shell
 # 数据形式如下:
 f1  f2  '[{"name":"张一","age":10,"sex":"girl"},{"name":"李一","age":12,"sex":"boy"}]'
 f3  f4  '[{"name":"张二","age":10,"sex":"girl"}]'
@@ -2224,219 +2530,56 @@ select split('{"name":"张一","age":10,"sex":"girl"},{"name":"李三","age":12,
 
 ```
 
-#### UDF
-
-udf和streaming的区别在于udf必须是在hadoop平台上的文件，而streaming要求的则是本地文件
-
-##### 编解码
-
-原生
+==例子-反转：==
 
 ```shell
-hex/unhex（自带）
-数据put的时候，二进制数据乱码问题
+# 待解析的格式
+f1	f2	pos1	10
+f1	f2	pos2	12
+f3	f4 	pos1	13
+f5	f6 	pos2	14
+f5	f6 	pos3	18
 
-md5
-计算md5值（自带）
+# 要解析成的格式
+f1 f2 {"pos1":10,"pos2":12}
+f3 f4 {"pos1":13}
+f5 f6 {"pos1":14,"pos2":18}
 ```
 
-平台提供
+> 解决方案1：
 
 ```mysql
-# 已经编译进hive源码，不需要再加载jar包
-xl_urldecode() 
 
-# 需要先加载jar包，字符串中有空格等的风险，如url参数传递，通常编码后再传
-uridecode()/uriencode()函数
-add jar $KK_WORKSPACE/bin/jar/com.xunlei.kk.feature.udf.jar
-create temporary function uridecode as 'com.xunlei.kk.feature.udf.UDFURIDecoder';
-create temporary function uriencode as 'com.xunlei.kk.feature.udf.UDFURIEncoder';
 ```
 
-自定义
+==例子-解析：==
+
+```
+id=xxxx,sessionid=xxx,rn=1,cur_episode=1,episodes=12,isover=0,year=2016,score=5.4;
+id=xxxx,sessionid=xxx,rn=3,,cur_episode=12,episodes=12,isover=1,year=2017,score=9.2;
+```
+
+> 解决方案1：
 
 ```mysql
-# 使用python streaming处理,或者本地处理
+select
+   guid
+   ,pos_video -- 此处已经是分拆之后的形式了
+   ,str_to_map(pos_video,',','=')['id'] as v_id -- 在分拆的形式上直接进行其它操作
+   ,extdata_map['channel'] as v_type
+from
+    shoulei_bdl.bl_shoulei_event_fact
+lateral view explode(split(extdata_map['contentlist'],'\073'))eds as pos_video
+where ds='20180717' and appid='45' and type in ('video','other')
+    and attribute1 in ('onlinePlay_channel_show')
 ```
 
-##### 数据类型转换
 
-**str->map**
+#### 特殊处理
 
-> str_to_map(strings ,delim1,delim2), delin1键值对分隔符，delim2键值分隔符
+##### http请求头
 
-```mysql
-select str_to_map('k1:v1,k2:v2',',',':'); # {"k1":"v1","k2":"v2"}
-```
-
-**str->array**
-
-> split(strings,pattern)
-
-```mysql
-select split('5.2.4.1234','\\.');  # ["5","2","4","1234"]
-```
-
-**array->str**
-
-> concat_ws(delim,ARRAY arr)
-
-```mysql
-select concat_ws('_',fu5) from xmp_odl.xmpplaydur where ds='20170612' and hour=10 limit 10;
-select concat_ws('_',["5","2","4","1234"]);
-```
-
-以上均是自带的，以下是扩展：
-
-**array->map**
-
-```python
-# 比如k1,v1,k2,v2,其顺序依次是key,value,key,value,可以参考python-streaming实现
-a = [1, 2, 3, 4, 5, 6]
-b=list(zip( a[::2], a[1::2] )) # [(1, 2), (3, 4), (5, 6)]
-dict(b) #{1: 2, 3: 4, 5: 6}
-```
-
-##### 分析函数
-
-```mysql
-#计算数组中某个值出现的次数
-xl_array_count(array(b,b,a),string b); 
-```
-
-#### Streaming操作
-
-hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进程，外部进程从标准输入中读数据，然后将结果数据写入到标准输出。
-
-注意：
-
-> streaming过程使用到的文件都是本地文件，不需要上传到hadoop集群上
-
-优点：
-
-- 少数据量的复杂计算
-- 快速出结果
-- 几乎支持所有语言（bash/perl/python/java）
-
-缺点：
-
-- IO开销大，效率低
-
-##### 语句
-
-###### transform
-
-结合insert overwrite 使用transform
-
-```mysql
-add file python_streaming.py;
-select transform(substr(fu1,2,5),fu2,fu5,fu7,fip,finsert_time) 
-using 'python_streaming.py' 
-as (pid,mlint,flstr,sstr,fip,ftime)
-from xmp_odl.xmpplaydur where ds='$date' limit 1000;
-```
-
-> 可以直接将经过处理后的文件进行处理后导出到本地
-
-######  reduce
-
-```mysql
-add file t_stat_url_upload_split_mapper.py;
-from(
-    select iconv(furl,'gbk')  as furl,iconv(fip,'gbk') as fip,iconv(ftime,'gbk') as ftime
-    from kankan_odl.t_stat_url_upload
-    where ds='${date}'
-    cluster by fip
-)a
-insert overwrite table kankan_bdl.t_stat_url_upload_split partition(ds='${date}')
-reduce a.furl,a.fip,a.ftime
-using 't_stat_url_upload_split_mapper.py'
-as install,channel,peerid,version, package_name, installtype,fip,ftime ;
-```
-
-> 处理后插入到新表中
-
-#####  实现
-
-###### python
-
-```shell
-python实现
-```
-
-###### shell
-
-```shell
-shell实现
-```
-
-###### perl
-
-```perl
-perl实现
-```
-
-### 积累
-
-#### 细节
-
-##### 注释
-
-hql脚本注释
-
-```mysql
-# 单行注释
---i'm comment(回车)
-select count(*) from dual;
-
-# 多行注释
-//暂时不支持
-```
-
-> 对比[mysql的注释](https://www.cnblogs.com/dapeng111/archive/2013/01/02/2842106.html)`xxx.sql`
->
-> ```mysql
-> # 这是mysql的单行注释
-> select * from xx;
-> ```
-
-##### 中文别名
-
-```mysql
-select xx as `中文别名` from db.tbl;
-# 注意其中文别名要用反双引号括起来，而不是单引号或者双引号
-
-对于英文别名，直接写成 select xx as aliasxx,其中aliasxx不要再加引号
-```
-
-##### order by 字段
-
-order by 是最后执行的，若对列(包含计算列)没有起别名，则\_c0,\_c1,\_c2分别对应相应的列
-
-```mysql
-use shoulei_bdl;
-select 
-    ds,
-    guid,
-    eventname,
-    attribute1,
-    from_unixtime(cast(ts as int),'yyyyMMdd HH:mm:ss') as t # 此处是否起别名对结果无影响
-from 
-   vvvvv
-where 
-    ds='20180327' and appid='48' and cv rlike '^5.32'
-    and eventname!='ios_advertise' 
-order by 
-    ds,
-    guid,
-    t;  # 此处的t不能换成from_unixtime(cast(ts as int),'yyyyMMdd HH:mm:ss')，也不能换成ts
-```
-
-> 在orderby中可以使用别名
-
-#### url解析
-
-##### url还原
+###### 请求url
 
 上报的url大多都经过uriencode进行编码，对`[:?,/]`等进行编码，若要正常解析，先使用uridecode对url解析，如下：
 
@@ -2462,7 +2605,7 @@ http://48.fans.xunlei.com/catalog/catalog.shtml?type=音乐
 unhex(regexp_replace(parse_url(uridecode(fu4),'QUERY','type'),'%',''))
 ```
 
-##### url参数解析
+**参数解析**
 
 ```mysql
 select parse_url('http://facebook.com/path/p1.php?query=1', 'PROTOCOL') from dual;  
@@ -2495,7 +2638,34 @@ select concat(parse_url('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_pu
 //结果：pay.xunlei.com/bjvip.html
 ```
 
-#### ip处理
+###### 请求UA
+
+[UA的格式](https://blog.csdn.net/laozhaokun/article/details/42024663)如下：
+
+```shell
+Mozilla/5.0 (Linux; Android 8.0; VKY-AL00 Build/HUAWEIVKY-AL00; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/48.0.2564.116 Mobile Safari/537.36 T7/10.9 baiduboxapp/10.9.5.10 (Baidu; P1 8.0.0)
+```
+
+UA各部分的内容构成：
+
+```
+
+```
+
+[UA解析](https://github.com/hotoo/detector)：
+
+```mysql
+npm install detector -g
+#Usage: detector [options] "user-agent string.",解析示例如下：
+detector 'Mozilla/5.0 (Linux; Android 5.0.2; vivo X5Pro D Build/LRX21M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/62.0.3202.84 Mobile Safari/537.36 VivoBrowser/5.5.2.2'
+
+   Device:  vivo@x5pro
+       OS:  android@5.0.2
+  Browser:  chrome@62.0.3202.84
+   Engine:  webkit@537.36
+```
+
+##### ip处理
 
 通过ip处理，获取位置（省份、市）等信息
 
@@ -2557,7 +2727,7 @@ nvl(xl_geoip_parse(xl_inet_ntoa(xl_htonl(cast(serverinfo[1] as bigint))),'CITY')
 > 大端ip数值转小端
 > ```
 
-#### 文件名处理
+##### 文件名处理
 
 文件名及后缀解析
 
@@ -2578,9 +2748,9 @@ local hql="$MUDF;insert overwrite table xmp_mid.gcid_purefilename_filter partiti
                 select gcid,filename,size(split(uridecode(filename),'\\\\\\\')) as cnt from 					download_bdl.bl_downloadlib_download_fact   where ds='$date' and eventid in 					(4635,4637,4638) and service_name='pc.thunder9' and gcid!='')x;"
 ```
 
-#### 关键词过滤
+##### 关键词过滤
 
-> 关键词过滤的核心是如何批量处理关键词的问题
+> 关键词过滤的核心是如何批量处理关键词的问题,目前唯一的解决方案是python streaming
 >
 
 #### 行列转换
@@ -2757,6 +2927,68 @@ on a.id=c.id;
 
 ```
 
+#### 抽样
+
+如何对数据进行抽样,
+
+##### GTopN抽样
+
+```mysql
+# 每组前N个
+use xmp_data_mid;
+SELECT A.ds, A.srctbl, A.srcdb,A.datasize
+  FROM (SELECT T.ds,
+               T.srctbl,
+               T.srcdb,
+               T.hour,
+               T.datasize,
+               RANK() OVER(PARTITION BY T.srctbl ORDER BY T.datasize DESC) RK
+          FROM group_test T) A
+ WHERE RK < 4;
+```
+
+##### 间隔抽样
+
+```mysql
+# 排序后间隔抽样挑选
+select 
+	* 
+from
+(
+    select 
+        play_duration,
+        play_starttime,
+        play_endtime,
+        rank() over (order by play_duration) as rn
+    from 
+        shoulei_bdl.bl_shoulei_play_native 
+    where ds='20180525' and appid='45'
+)a
+where rn%1000=0;
+```
+
+##### [随机抽样](https://blog.csdn.net/zwj841558/article/details/71143493)
+
+要求根据员工的职级分类rank，然后每类职级随机抽取2条数据， 
+
+```mysql
+select 
+   id,
+   name,
+   age,
+   rank
+from 
+( 
+    select id,
+        name,
+        age,
+        rank,
+        row_number()over(partition by rank order by rand()) as rn
+    from tab_a 
+) t
+where t.rn <=2
+```
+
 #### 分布
 
 分布其实也是指定时间内的频次统计，分为宽格式和长格式两种方式
@@ -2844,7 +3076,9 @@ from
 lateral view explode(uids)ud as uid;
 ```
 
-#### 错位间隔
+#### 探索
+
+##### 错位间隔
 
 错位间隔问题主要处理行之间的差值，主要在已排序的情况下，用以计算指定条件下的间隔计算问题,该技能可用于分析用户log。（扩展到mysql实现）
 
@@ -3027,6 +3261,8 @@ where d.rn1 is null and c.rn1_pre!=0;
 ```mysql
 参见3，完全实现
 ```
+
+
 
 ### 优化
 

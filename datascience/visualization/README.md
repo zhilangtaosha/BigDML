@@ -199,6 +199,8 @@
 
   [talkingdata移动互联网大数据平台](https://www.talkingdata.com/)
 
+  [Python数据可视化编程实战（书籍）](http://item.jd.com/11676691.html)
+
 - 进阶
 
   //补充绘制图表的基本原理
@@ -210,3 +212,5 @@
   [ggplot2 gallary](http://www.r-graph-gallery.com/portfolio/ggplot2-package/)
 
   [echarts gallary](http://echarts.baidu.com/echarts2/doc/example.html)
+
+  [matplotlib_tutorial](https://github.com/rougier/matplotlib-tutorial)(git仓库)

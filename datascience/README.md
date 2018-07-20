@@ -1,4 +1,4 @@
-##数据科学
+##数据科学笔记
 [TOC]
 
 ### 基础
@@ -47,7 +47,39 @@
 
 (3)、两个变量的观测值是成对的，每对观测值之间相互独立。
 
-### 进阶
+### 实现
+
+#### python
+
+python数据处理三剑客：numpy/pandas/scipy
+
+##### numpy
+
+```python
+
+```
+
+##### pandas
+
+```python
+
+```
+
+##### scipy
+
+```python
+
+```
+
+#### r
+
+DataFrame作为R中的基础数据结构
+
+```R
+
+```
+
+### 专题
 
 #### 海量数据处理
 
@@ -59,6 +91,10 @@
 
   [相关系数](http://m.blog.csdn.net/ciedecem/article/details/39582635)
 
-- 进阶
+  [数据科学完整学习路径-Python版（推荐）](https://www.tuicool.com/articles/QBZzquY)
+
+- 实现
+
+- 专题
 
 
