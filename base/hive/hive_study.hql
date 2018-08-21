@@ -1,3 +1,4 @@
+-------------- 基础
 # 创建表
 # 文本格式存储
 use kankan_odl;drop table if exists hive_table_templete;
@@ -123,3 +124,68 @@ use xmp_odl;alter table $tbl change col_name newcol_name string [after x] [first
 
 # hive表重命名
 use xmp_odl;alter table $tbl rename to new_tbl_name;
+
+
+------------------ 其它
+-- 演示表创建
+use xmp_data_mid;
+insert overwrite table filters_load partition(type='accum')
+select hour,count(*) from xmp_odl.zkpv where ds='20160702' group by hour order by hour;
+
+-- 累积条数
+select hour
+    ,count(*) as hour_cnt
+    ,sum(count(*)) over (order by hour rows between unbounded preceding and current row) as accum_cnt
+from 
+    xmp_odl.zkpv 
+where ds='20160702' 
+group by hour;
+
+-- 累积条数、累积和、累积均值、3步移动平均
+select id as hour,f1 as cnt
+	,sum(f1) over(order by id rows between unbounded preceding and current row) -- 累积和
+    ,sum(f1) over(order by id rows between 1 preceding and 1 following)         -- 前后一小时之和
+    ,avg(f1) over(order by id rows between unbounded preceding and current row) -- 累积均值
+    ,avg(f1) over(order by id rows between 3 preceding and current row)         -- 前3小时的均值
+from
+    xmp_data_mid.filters_load
+where type='accum'
+group by id,f1;
+
+
+---------------- join
+--1.left semi join(两种写法结果相同)
+select 
+    *
+from 
+(select * from tbl_a where dtask='tjoin')a
+left semi join
+(select * from tbl_b where dtask='tjoin')b
+on a.id=b.id;
+
+select 
+    *
+from 
+tbl_a a
+left semi join
+tbl_b b
+on a.dtask=b.dtask and a.id=b.id and a.dtask='tjoin';
+
+
+--2.left join （两种写法结果不同）
+select 
+    *
+from 
+(select * from tbl_a where dtask='tjoin')a
+left join
+(select * from tbl_b where dtask='tjoin')b
+on a.id=b.id;
+
+
+select 
+    *
+from 
+    tbl_a a
+left join
+    tbl_b b
+on a.dtask=b.dtask and a.id=b.id and a.dtask='tjoin';

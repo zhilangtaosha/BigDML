@@ -83,24 +83,32 @@
 
 ##### 面积图
 
+###### 堆积面积图
+
 #### 应用场景
 
-##### 定量分析
+##### 图表选择
+
+根据是进行定量分析还是定性分析的，初步选择依据如下：
 
 1、定量分析(4大类)
-​	a、趋势图：时间序列，纵向对比分析
-​	b、饼图：成分分析
-​	c、条形图：对比分析，纵向对比分析
-​	d、散点图：集中度趋势分析、预测分析
-
-##### 定性分析
+	a、趋势图：时间序列，纵向对比分析
+	b、饼图：成分分析
+	c、条形图：对比分析，纵向对比分析
+	d、散点图：集中度趋势分析、预测分析
 
 2、定性分析：[echarts.baidu.com](http://echarts.baidu.com/)
-​	a、仪表盘
-​	b、雷达图
-​	c、漏斗图
-​	d、地图
-​	e、树状图
+	a、仪表盘
+	b、雷达图
+	c、漏斗图
+	d、地图
+	e、树状图
+
+详细的图表选择依据：
+
+![图表选择依据-方方格子-Excel图表之道](http://tuling56.site/imgbed/2018-08-16_204436.png)
+
+
 
 #### 绘图流程
 
@@ -195,6 +203,8 @@
 
   [用图表说话-麦肯锡商务沟通.pdf](//带添加)
 
+  [Excel图表之道-如何制作专业有效的商务图表](//)
+
   [陈为《数据可视化》书评及思维导图](https://www.cnblogs.com/zhangdi/p/3735125.html)
 
   [talkingdata移动互联网大数据平台](https://www.talkingdata.com/)
@@ -205,7 +215,7 @@
 
   //补充绘制图表的基本原理
 
-- 实现
+- 演示
 
   [matplotlib gallary](https://matplotlib.org/gallery.html)
 
@@ -214,3 +224,9 @@
   [echarts gallary](http://echarts.baidu.com/echarts2/doc/example.html)
 
   [matplotlib_tutorial](https://github.com/rougier/matplotlib-tutorial)(git仓库)
+
+  [highcharts demo](https://www.highcharts.com/demo)
+
+  [amcharts demo](https://www.amcharts.com/demos/)
+
+  [echarts demo](http://echarts.baidu.com/examples/)

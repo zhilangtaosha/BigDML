@@ -184,6 +184,8 @@ from
     sl_channel_id_type
 limit 10;
 
+# 测试5：
+# map数据的插入还有先将其它数据导出到文件，然后再通过文件load的方式得到，此种方法效率相对较低。
 ```
 
 > map字段插入空:
@@ -211,10 +213,19 @@ load data local inpath "map.txt"  overwrite into table map_test;
 
 > 注意:
 >
-> map的字典不能直接在order by中使用，需要使用别名
+> - map的字典不能直接在order by中使用，需要使用别名
 >
 > ```mysql
 > select mdict['xxx'] as mdx,mdict['vvv'] from db1.table1 order by  mdx;
+> ```
+> - map数据可与本地文件导入的方式生成
+>
+> ```shell
+> [root@tw07562 hive_datatype]# cat map.txt 
+> a00     b0:b01,b1:b11   {"c0":"1","c1":2}
+> a01     b1:b11,b2:b12   {"c1":"3","c2":"2"}
+> a02     b2:b12,b3:b13   {"d":"1"}
+> a03     b3:b13,b4:b14   {}
 > ```
 
 map操作
@@ -305,7 +316,7 @@ cast(xxint as string);
 
 #### 属性设置
 
-命令行
+##### hive命令行
 
 ```shell
 # 静音模式
@@ -337,7 +348,7 @@ delete ARCHIVE[S] <filepath>*
 source FILE <filepath>	在CLI里执行一个hive脚本文件
 ```
 
-hiveconf参数设置
+##### hiveconf参数
 
 ```shell
 HIVE_2="/usr/local/complat/complat_clients/cli_bin/hive  
@@ -371,7 +382,9 @@ HIVE_2="/usr/local/complat/complat_clients/cli_bin/hive
 
 #### 表和视图
 
-##### 创建表
+##### 表
+
+###### 创建表
 
 ```mysql
 CREATE [EXTERNAL] TABLE [IF NOT EXISTS] table_name 
@@ -391,8 +404,8 @@ CREATE [EXTERNAL] TABLE [IF NOT EXISTS] table_name
 > •COMMENT可以为表与字段增加描述
 >
 > •ROW FORMAT
->     DELIMITED [FIELDS TERMINATED BY char] [COLLECTION ITEMS TERMINATED BY char]
->         [MAP KEYS TERMINATED BY char] [LINES TERMINATED BY char]
+>     DELIMITED [FIELDS TERMINATED BY char][COLLECTION ITEMS TERMINATED BY char]
+>         [MAP KEYS TERMINATED BY char][LINES TERMINATED BY char]
 >    | SERDE serde_name [WITH SERDEPROPERTIES (property_name=property_value, property_name=property_value, ...)]
 >          用户在建表的时候可以自定义 SerDe 或者使用自带的 SerDe。如果没有指定 ROW FORMAT 或者 ROW FORMAT DELIMITED，将会使用自带的 SerDe。在建表的时候，用户还需要为表指定列，用户在指定表的列的同时也会指定自定义的 SerDe，Hive 通过 SerDe 确定表的具体的列的数据。
 > •STORED AS
@@ -409,7 +422,8 @@ create database if not exists apple1_bdl comment 'apple1 without xiaomi bdl data
 location '/user/complat/warehouse/apple1_bdl.db/';
 ```
 
-> 这是创建库而不指定库的路径的时候库的目录是/user/xxx/warehouse/,此处删除库的时候会直接将整个目录删除。
+> - 创建库而不指定库路径库目录是/user/xxx/warehouse/,此处删除库的时候会直接将整个目录删除。
+> - **不要用外部表！不要用外部表！不要用外部表！** 
 
 分割符
 
@@ -423,7 +437,7 @@ LINES TERMINATED BY '\n'
 STORED AS TEXTFILE;
 ```
 
-###### 文本格式
+**文本格式**
 
 外部表
 
@@ -459,9 +473,16 @@ map keys terminated by ":"
 stored as textfile;
 ```
 
-> 只有文本存储格式才能使用`load data local inpath`的方法进行数据加载填充
+> 只有文本存储格式才能使用`load data local inpath`的方法进行数据加载填充，否则则使用load data的时候报错如下：
+>
+> ```
+> Failed with exception Wrong file format. Please check the file's format.
+> FAILED: Execution Error, return code 1 from org.apache.hadoop.hive.ql.exec.MoveTask
+> ```
 
-###### 序列化格式
+**序列化格式**
+
+外部表
 
 ```sql
 use kankan_odl;drop table if exists hive_table_templete;
@@ -483,6 +504,8 @@ stored as inputformat
 outputformat
   'org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat';
 ```
+内部表
+
 ```mysql
 use xmp_data_mid;
 drop table if exists guid_action;
@@ -497,6 +520,8 @@ partitioned by (dyear string,dmon string)
 row format delimited
 fields terminated by '\t';
 ```
+
+
 
 ```mysql
 CREATE TABLE `odl_xxx_android_sdk_action_info`(
@@ -523,14 +548,14 @@ LOCATION
   'hdfs://wh-ns/user/complat/warehouse/xxxx_sdk_odl.db/odl_xxxxx_android_sdk_action_info';
 ```
 
-##### 查看表
+###### 查看表
 
-```shell
-# 按正条件（正则表达式）显示表，
+```mysql
+# 按正条件（正则表达式）显示表，注意此处使用show tables like '%xx%'无效
 SHOW TABLES '.*s';
 ```
 
-###### 表结构
+表结构
 
 ```shell
 #方法1：查看表的字段信息
@@ -546,13 +571,15 @@ desc formatted table_name;
 show create table table_name;
 ```
 
-###### 表容量
+表容量
 
 ```shell
-hadoop fs -ls xxxx |awk -F ' ' '{print $5}'|awk '{a+=$1}END{print a/(1024*1024*1024)}'  # 单位G
+hadoop fs -ls xxx |awk -F ' ' '{print $5}'|awk '{a+=$1}END{print a/(1024*1024*1024)}'  # 单位G
 ```
 
-##### 创建视图
+##### 视图
+
+###### 创建视图
 
 视图是只读的，不能向视图中插入或是加载数据，视图可以被定义为多个表的连接，也可以被定义为只有部分列可见，也可为部分行可见。
 
@@ -576,7 +603,7 @@ hadoop fs -ls xxxx |awk -F ' ' '{print $5}'|awk '{a+=$1}END{print a/(1024*1024*1
 create view v_highfun_test as select day,cookieid from highfun_test;
 ```
 
-##### 查看视图
+###### 查看视图
 
 ```mysql
 select * from v_highfun_test;
@@ -646,22 +673,31 @@ alter table $tbl partition(ds='20160808',hour='00') rename to partition(ds='2016
 ```mysql
 alter table xxx drop if exists partition (ds='$date');
 insert overwrite table xxx partition(ds='${date}',appid,servid)
-select 
-	,other
-	,appid
-	,serverid
-from 
-	vvvv;
+select other,appid,serverid
+from vvvv;
 # 运行的时候会根据appid、serverid的不同值自动进入相应的分区中
 ```
 
-> 但要注
+> 但要注意:动态分区必须在静态分区之后，不能先动态分区然后接着静态分区，例如：
+>
+> ```mysql
+> alter table xxx drop if exists partition (ds='$date');
+> insert overwrite table xxx partition(ds='${date}',appid,servid)
+> select other,appid
+> 	,'静态serverii_xx'
+> from vvvv;
+> ```
+>
+> 会报错：
 >
 > ```shell
 > Dynamic partition cannot be the parent of a static partition ''xsdnerrcode'';
 > ```
 >
-> 
+
+##### 分桶操作
+
+//分桶操作只在很少的情况下被使用，后面再补充
 
 ##### 字段操作
 
@@ -671,6 +707,8 @@ from
 alter table $tbl add columns(col_name string comment 'this is comment');
 ```
 
+> 添加列是添加到表的最后，但在分区之前
+>
 > 注意hive不支持直接添加列到指定位置，解决方案是先添加列，然后再修改列到指定的位置
 >
 > ```mysql
@@ -712,25 +750,35 @@ alter table name replace columns (col_spec[, col_spec ...]);
 
 参数设置,修改，存储格式，分桶
 
-###### 表重命名
+###### 重命名
 
 ````mysql
-use xmp_odl;alter table $tbl rename to new_tbl_name;
+use xmp_odl;alter table $tbl rename to $new_tbl_name;
 ````
 
-###### 修改表存储属性
+###### 修改表属性
 
-```sql
-# 修改存储格式
+修改存储格式
+
+```mysql
 alter TABLE  pusherdc   SET FILEFORMAT
 INPUTFORMAT "org.apache.hadoop.mapred.SequenceFileInputFormat"
 OUTPUTFORMAT "org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat";
 
+# 或者
+alter table testdb partition (ds=20180416) set fileformat sequencefile;
+```
 
-# 修改字段分割方式
+> 只修改表的存储格式不会影响已有的分区，只会影响新建的分区，如果有需要，已有分区也必须执行修改。 
+
+修改字段分割方式
+
+```mysql
 alter table xmp_subproduct_install set SERDEPROPERTIES('field.delim' = '\u0001');
 alter table xmp_subproduct_install set SERDEPROPERTIES('serialization.format' = '\u0001');
 ```
+
+> 只修改表的字段分隔符不会影响已有分区，只会影响新建的分区，如果有需要，已有分区也必须执行修改。 
 
 ###### 删除表
 
@@ -747,6 +795,8 @@ drop table if exists $tbl;
 ```shell
 alter table dog drop partition(sex='boy');
 ```
+
+> 删除分区的时候必须逐层指定，删除顶层分区的话，其子分区也会一并删除
 
 ### 查询
 
@@ -857,6 +907,31 @@ ORDER BY
 	cnt DESC;
 ```
 
+##### exists 和in
+
+hive中支持exists和in，但不支持exists和in的子查询，代替方案是left semi join
+
+```mysql
+select *   
+from trackinfo t1   
+left semi join rcmd_track_path t2   
+on (t1.session_id=t2.session_id 
+   	and t2.add_cart_flag>0 
+    and t2.product_id>0 and t1.ds=$date and t2.ds=$date);  
+```
+
+例子2：
+
+```mysql
+# exists和in实现
+use study;
+select * from t_join_a a left join t_join_b  b on a.id=b.id;
+select a.id,sum(amount),sum(if(b.id is not null,amount,NULL)) 
+from t_join_a a 
+left join t_join_b  b 
+on a.id=b.id and b.id;
+```
+
 #### 正则
 
 ##### 元字符
@@ -902,6 +977,15 @@ hive中的正则转义使用两个反斜杠， 即‘//’，
 
 ```shell
 vsw rlike '^.*(share_result|zan|discuss_result|follow_click_result|transmit_result)$';
+
+# 匹配push_pop、push_click、push_show
+select 'push_new' rlike 'push_(pop|click|show)$';
+```
+
+扩展字符
+
+```shell
++ ? {} ()
 ```
 
 ##### 正则匹配
@@ -916,42 +1000,77 @@ select 'www.eee23232.com' rlike 'www.(eee[0-9]{2,}|fff[0-9]{2,}).com' from test.
 
 ##### [正则抽取](http://blog.csdn.net/jv_rookie/article/details/55211955)
 
+版本号
+
+```shell
+select regexp_extract('5.2.14.5672',"(^\\d+)\\.(\\d+)\\.(\\d+)",0);  # 结果5.2.14
+```
+
+网址
+
 ```mysql
 # 正则抽取（注意此处不能使用\d和\w等类似的字符）
 select regexp_extract('http://xxx/details/0/40.shtml','http://xxx/details/([0-9]{1,})/([0-9]{1,})\.shtml',1) from test.dual; # 返回40
 
-select regexp_extract('5.2.14.5672',"(^\\d+)\\.(\\d+)\\.(\\d+)",0); 
-select regexp_extract('0796-7894145','(^\\d{3,4})\\-?(\\d{7,8}$)',1); //结果0796
+
+
 select regexp_extract('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_push_noti_nfxf','(.*)\\?referfrom=(.*)',1); //结果https://pay.xunlei.com/bjvip.html
 ```
 
-> 正则抽取中的贪婪匹配
->
-> ```mysql
-> # 提取某个分割符中的最后一位
-> select regexp_extract('a,b,c,de,f2g2','(.*),(.*)',2); 
->
-> #提取中文标题的尝试
-> select regexp_extract('D:\迅雷下载\[2015]小森林小森林\夏秋篇.Little.Forest.Summer.Autumn.rmvb_snapshot_00[2015.08.31_09].jpg','(.*)\(.*)',1);  #提取路径
-> select regexp_extract(filename,'(.*)/(.*)',2);  # 提取文件名
->
-> select regexp_extract('x=123abcde&x=18456abc&x=2&y=3&x=4','x=([0-9]+)([a-z]+)',2);
-> ```
->
+电话号码
 
-例子：
+```shell
+select regexp_extract('0796-7894145','(^\\d{3,4})\\-?(\\d{7,8}$)',1); //结果0796
+```
 
-```mysql
-# 提取中文字字符
-select regexp_extract(results,'([\\u4e00-\\u9fa5]+)',1) from vip_mid.vip_block_detail_djq_d limit 3;
-select regexp_extract('dui你ada 大坏2232！ 蛋','([\\u4e00-\\u9fa5]+)',1) from test.dual; #你
+文件和路径
 
+```shell
+# 提取中文标题的尝试
+select regexp_extract('D:\下载\[2015]小\夏篇.Little.rmvb_00[2015.08.31_09].jpg','(.*)\(.*)',1); 
 
-# 提取文件后缀(在shell中\\要变成\\\\)
+# 提取路径
+select regexp_extract('D:/zhang/g.nia/zz.jpg','(.*)/(.*$)',1); # 结果D:/zhang/g.nia
+
+# 提取文件名
+select regexp_extract('D:/zhang/g.nia/zz.jpg','(.*)/(.*$)',2); # 结果zz.jpg  
+
+# 提取后缀(在shell中\\要变成\\\\)
 select lower(regexp_extract(xl_urldecode(xl_urldecode(filename)),'(.*)\\.(.*)',2)); -- rmvb
 select regexp_extract('zhang.mei.nv.rmvb','(.?)\\.(.*)',2);  -- mei.nv.rmvb  (采用非贪婪模式)
 select regexp_extract('zhang.mei.nv.rmvb','(.*)\\.(.*)',2);  -- rmvb  (采用贪婪模式)
 ```
+
+提取中文
+
+```shell
+select regexp_extract(results,'([\\u4e00-\\u9fa5]+)',1) from vip_mid.vip_block_detail_djq_d;
+
+# 提取第几个中文
+select regexp_extract('dui你ada 大坏2232！ 蛋','([\\u4e00-\\u9fa5]+)',1) from test.dual; #你
+```
+
+提取指定位置
+
+```shell
+# 提取某个分割符中的最后一位
+select regexp_extract('a,b,c,de,f2g2','(.*),(.*)',2); 
+```
+
+> 等效的另外方法:
+>
+> ```shell
+> select reverse(split(reverse('a,b,c,de,f2g2'),',')[0]); 
+> ```
+
+
+
+注：正则抽取中的贪婪匹配
+
+> ```mysql
+> select regexp_extract('x=123abcde&x=18456abc&x=2&y=3&x=4','x=([0-9]+)([a-z]+)',2);
+> ```
+>
 
 ##### 正则替换
 
@@ -1017,7 +1136,9 @@ select split(r"A:\xun\白石\大哥\wzhang\vvv.rar",'\\\') from test.dual;
 
 连接是在查询中最广泛使用的，但要注意数据倾斜问题,==而且join中on的字段不能放在where中==
 
-##### left [outer] join
+##### outer join
+
+###### left [outer] join
 
 left join(左连接)：返回两个表中连结字段相等的行和左表中的行；
 
@@ -1044,7 +1165,7 @@ from (
 # 其中t1表结果来自dbl.tb1，t2表结果来自db2.tb2
 ```
 
-##### right [outer] join
+###### right [outer] join
 
 right join(右连接)：返回包括右表中的所有记录和左表中连接字段相等的记录。
 
@@ -1054,7 +1175,7 @@ right join(右连接)：返回包括右表中的所有记录和左表中连接�
 
 ```
 
-##### full [outer] join
+###### full [outer] join
 
 全外连接
 
@@ -1157,7 +1278,7 @@ select .. from join tables (a,b,c) with keys (a.key, b.key, c.key) where ....
 
 ##### left semi join
 
-[left semi join](https://blog.csdn.net/wisdom_c_1010/article/details/78774129)是可以高效实现in/exists子查询的语义，
+[left semi join](https://blog.csdn.net/wisdom_c_1010/article/details/78774129)是可以高效实现==in/exists子查询的语义==，
 
 - 当A表中的记录，在B表上产生符合条件之后就返回，不会再继续查找B表记录了
 - select的只能是左侧表的字段，不能出现右侧表的字段
@@ -1165,26 +1286,43 @@ select .. from join tables (a,b,c) with keys (a.key, b.key, c.key) where ....
 
 ```mysql
  select a.key,a.value from a where a.key in (select b.key from b);
-（1）未实现left semi-join之前，hive实现上述语义的语句是：
+ 
+（1）未实现left semi join之前，hive实现上述语义的语句是：
    select t1.key, t1.value from a t1
-   left outer join (select distinctkey from b) t2 
+   left outer join (select distinct key from b) t2 
    on t1.id = t2.id
    where t2.id is not null;
 
 （2）可被替换为left semi join如下：
    select a.key, a.val from a left semi join b on (a.key = b.key)
-   这一实现减少至少1次mr过程，注意left semi-join的join条件必须是等值。
+   这一实现减少至少1次mr过程，注意left semi join的join条件必须是等值。
 ```
 
 例子：
 
 ```mysql
-select a.guid,a.eventid from xlj_test_event a left semi join xlj_test_user b on a.guid=b.guid and a.ds=20150527 and b.ds=20150527 and a.eventid=3604 limit 40;
+select a.guid,a.eventid from xlj_test_event a 
+left semi join xlj_test_user b 
+on a.guid=b.guid and a.ds=20150527 and b.ds=20150527 and a.eventid=3604 limit 40;
 
-select a.pid,b.flag from xmp_mid.dau_pid a left semi join xmp_bdl.xmp_kpi_active b  on (a.pid=b.pid) where a.minds=20160101 and b.ds=20160109 limit 10;
+select a.pid,b.flag from xmp_mid.dau_pid a 
+left semi join xmp_bdl.xmp_kpi_active b  
+on (a.pid=b.pid) where a.minds=20160101 and b.ds=20160109 limit 10;
 ```
 
-==join中的on和where执行顺序==
+例子2：
+
+```mysql
+select * from a where a.id IN (SELECT b.id FROM b WHERE b.x='1');
+# 提示错误：不支持子查询，用left semi join的实现
+select * from a left semi join b on(a.id=b.id and b.x='1');
+```
+
+##### 连接解疑
+
+主要处理on的多条件和where顺序
+
+###### ==join中的on和where执行顺序==
 
 ```mysql
 # inner join中on和where的顺序对执行结果无影响
@@ -1192,6 +1330,28 @@ select * form tab1 left join tab2 on (tab1.size = tab2.size and tab2.name='AAA')
 ```
 
 ![on和where顺序](http://tuling56.site/imgbed/2018-07-13_163312.png)
+
+##### 集合运算
+
+集合运算是通过join运算实现的
+
+###### 差集
+
+```mysql
+
+```
+
+###### 交集
+
+```mysql
+
+```
+
+###### 并集
+
+```mysql
+
+```
 
 #### 分组
 
@@ -1211,6 +1371,14 @@ with cube
 # 其等效于
 group by xx1,xx2,xx3
 grouping sets((),(xx1),(xx1,xx2),(xx1,xx2,xx3));
+```
+
+##### [with rollup](http://lxw1234.com/archives/2015/04/193.htm)
+
+以最左侧的维度为准，进行层级聚合
+
+```mysql
+
 ```
 
 ### 函数
@@ -1299,7 +1467,7 @@ grouping sets((),(xx1),(xx1,xx2),(xx1,xx2,xx3));
 	select regexp_extract('a=bc.=d=ahhw&e=12','(.*)d=(.*)',2);
 ```
 
-字符串分割
+###### 字符串分割
 
 ```mysql
 # 一般字符
@@ -1343,19 +1511,15 @@ from(
 > - 当[分割符号是‘;’号](http://blog.csdn.net/dj_2009291007/article/details/78667695)的时候，因为分号是sql的结束符，在HDFS中识别不了，因此需要用分号的二进制`\073`来表示
 >
 >   ```mysql
->   select
->     totalprice,
->     email 
+>   select  totalprice, email 
 >   from
 >     prd_updated.ecom_ms_order_udl m 
 >   lateral view explode(split ( m.p_ccemailaddress,'\073')) adtable as email 
->   where
->     email !=''
+>   where  email !=''
 >   ```
 >
->   ​
 
-字符串截取
+###### 字符串截取
 
 ```mysql
 select substr('123456',0,2) from test.dual; # 其等价于substr('123456',1,2),从0开始和从1开始的结果是相同的
@@ -1363,7 +1527,7 @@ select substr('123456',0,2) from test.dual; # 其等价于substr('123456',1,2),�
 substr(substr('41252292167998464',-2),1,1); # 结果6
 ```
 
-字符串替换
+###### 字符串替换
 
 ```mysql
 regexp_replace(string INITIAL_STRING, string PATTERN, string REPLACEMENT)
@@ -1371,14 +1535,14 @@ select regexp_replace("foobar", "oo|ar", "")  from test.dual;
 select unhex(regexp_replace('%E4%B8%AD%E5%9B%BD','%','')) from test.dual;
 ```
 
-字符串抽取
+###### 字符串抽取
 
 ```mysql
 regexp_extract(string subject, string pattern, int index)
 select regexp_extract('foothebar', 'foo(.*?)(bar)', 1) from test.dual;
 ```
 
-字符串拼接
+###### 字符串拼接
 
 ```mysql
 select concat('foo','bar');
@@ -1386,9 +1550,7 @@ select concat_ws('_',array('1','2','3')); #可以直接拼接数组
 select concat_ws('_',collect_list(xxx));
 ```
 
-##### 数字
-
-函数一览
+##### 数字计算
 
 | **Return Type** | **Name (Signature)**                     | **Description**                          |
 | --------------- | ---------------------------------------- | ---------------------------------------- |
@@ -1435,7 +1597,7 @@ select concat_ws('_',collect_list(xxx));
 
 ##### 日期时间
 
-基本操作
+###### 基本操作
 
 ```mysql
 # 时间戳转日期
@@ -1455,19 +1617,10 @@ select substr('2011-12-07 13:01:03',12,5) from test.dual;  #13:01
 select hour('2011-12-07 13:01:03'); # 注意必须是此种格式
 select hour(from_unixtime(cast(ts as bigint),'yyyy-MM-dd HH:mm:ss'));
 
-
-# 统计小时内的最高值
-select hour(ftime),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170708' group by hour(ftime) order by cnt desc;
-
-# 统计五分钟的最高值
-select collect_set(substr(ftime,1,16))[0],int((hour(ftime)*60+minute(ftime))/5),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170908' group by int((hour(ftime)*60+minute(ftime))/5) order by cnt desc;
-
-# 统计每10秒内的最高值
-select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime))/10),count(distinct fpeerid) cnt from xmp_odl.t_stat_play where ds='20170908' group by int((hour(ftime)*3600+minute(ftime)*60+second(ftime))/10) order by cnt desc;
 ```
 
-> hive日期计算精确到毫秒：
->
+hive日期计算精确到毫秒：
+
 > 其中t1是10位的时间戳值，即1970-1-1至今的秒，而13位的所谓毫秒的是不可以的。
 >
 > 对于13位时间戳，需要截取，然后转换成bigint类型，因为from_unixtime类第一个参数只接受bigint类型。例如
@@ -1484,7 +1637,45 @@ select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime
 > select concat(from_unixtime(cast(substr(1524448307222,1,10) as int),'yyyyMMdd HH:mm:ss'),' ',substr(1524448307222,11,3)) as ts;
 > ```
 
-日期运算
+时间区间
+
+```mysql
+# 统计小时内的最高值
+select hour(ftime)
+	,count(distinct fpeerid) cnt 
+from xmp_odl.t_stat_play 
+where ds='20170708' 
+group by hour(ftime) 
+order by cnt desc;
+
+# 统计五分钟的最高值
+select collect_set(substr(ftime,1,16))[0]
+    ,int((hour(ftime)*60+minute(ftime))/5)
+    ,count(distinct fpeerid) cnt 
+from xmp_odl.t_stat_play 
+where ds='20170908' 
+group by int((hour(ftime)*60+minute(ftime))/5) 
+order by cnt desc;
+
+# 统计每10秒内的最高值
+select collect_set(ftime)[0]
+	,int((hour(ftime)*3600+minute(ftime)*60+second(ftime))/10)
+	,count(distinct fpeerid) cnt 
+from xmp_odl.t_stat_play 
+where ds='20170908' 
+group by int((hour(ftime)*3600+minute(ftime)*60+second(ftime))/10) 
+order by cnt desc;
+
+
+# 几点几分-->几点几分
+select *
+from
+where ds='20180812'
+    and from_unixtime(cast(ts as int),'HH:mm')>'21:00' 
+    and from_unixtime(cast(ts as int),'HH:mm')<'22:30';
+```
+
+###### [日期运算](http://www.cnblogs.com/moodlxs/p/3370521.html)
 
 ```shell
 （1）datediff(string enddate, stringstartdate)：
@@ -1504,6 +1695,8 @@ select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime
      根据格式串format 格式化日期和时间值date，返回结果串。
      date_format('2010-10-10','yyyy-MM-dd','yyyyMMdd')
      date_format('2010-12-23','yyyyMMdd');
+     date_format('20101223','yyyyMMdd','yyyy-MM-dd'); -- 不存在这种操作
+     
 
 （5）str_to_date(str,format)  # 字符串转日期（自定义）
      将字符串转化为日期函数
@@ -1511,24 +1704,7 @@ select collect_set(ftime)[0],int((hour(ftime)*3600+minute(ftime)*60+second(ftime
      str_to_date('09/01/2009','MM/dd/yyyy');
 ```
 
-参考:[HIVE时间操作函数](http://www.cnblogs.com/moodlxs/p/3370521.html)
-
-##### 数学函数-窗口
-
-窗口函数主要作用：
-
-- 分区排序
-- 动态GroupBy
-- TopN
-- 累计计算
-- 层次查询
-
-窗口函数一览：
-
-- lead
-- lag
-- first_value
-- last_value
+##### 数学函数-表和聚合
 
 ###### grouping sets
 
@@ -1568,7 +1744,7 @@ ds				srctbl	srcdb			hour 	datasize
 > ```
 >
 
-###### cube
+###### with cube
 
 根据GROUP BY的维度的所有组合进行聚合。
 
@@ -1596,9 +1772,9 @@ SELECT month,day,COUNT(DISTINCT s1) AS uv,3 AS GROUPING__ID FROM high_test GROUP
 
 > 注意：
 >
-> 所有组合进行聚合的时候，存在都为null的情况
+> 所有组合进行聚合的时候，存在都为null的情况，强烈建议在事实表层队null值进行集中处理
 
-###### roll up
+###### with rollup
 
 是CUBE的子集，以最左侧的维度为主，从该维度进行层级聚合
 
@@ -1786,8 +1962,7 @@ d2      user5   5000    1.0     1.0
 
 ###### row_number
 
-ROW_NUMBER() 从1开始，按照顺序，生成分组内记录的序列
-比如，按照pv降序排列，生成分组内每天的pv名次
+ROW_NUMBER() 从1开始，按照顺序，生成分组内记录的序列，比如，按照pv降序排列，生成分组内每天的pv名次
 
 ```mysql
 SELECT 
@@ -1873,43 +2048,84 @@ select explode(percentile(cast(id as bigint),array(0.25,0.5,0.75))) from high_te
 > - DENSE_RANK() 生成数据项在分组中的排名，排名相等不会在名次中留下空位
 > - PERCENT_RANK 分组内当前行的RANK值-1/分组内总行数-1
 
-rank()
+**rank()**
 
 ```mysql
 # rank统计每组前N个
 use xmp_data_mid;
-SELECT A.ds, A.srctbl, A.srcdb,A.datasize
-  FROM (SELECT T.ds,
-               T.srctbl,
-               T.srcdb,
-               T.hour,
-               T.datasize,
-               RANK() OVER(PARTITION BY T.srctbl ORDER BY T.datasize DESC) RK
-          FROM group_test T) A
- WHERE RK < 4;
+select ds, srctbl,srcdb,datasize,rk1,rk2
+from 
+(
+    select ds
+        ,srctbl
+        ,srcdb
+        ,hour
+        ,datasize
+        -- 表内部的排序
+        ,rank() over(partition by srctbl order by datasize desc) rk1 
+        -- 所有数据库中的排序
+        ,rank() over(partition by srcdb  order by datasize desc) rk2
+    from group_test
+) a
+where rk1 < 4 or rk2<4;
 ```
 
-> 注意：不分区排序(整体排序)
->
-> ```mysql
-> # 排序后抽样挑选
-> select 
-> 	* 
-> from
-> (
->     select 
->         play_duration,
->         play_starttime,
->         play_endtime,
->         rank() over (order by play_duration) as rn
->     from 
->         shoulei_bdl.bl_shoulei_play_native 
->     where ds='20180525' and appid='45'
-> )a
-> where rn%1000=0;
-> ```
+> 扩展1：不分区排序(整体排序)
 
-dense_rank()
+```mysql
+# 排序后抽样挑选
+select 
+	* 
+from
+(
+    select 
+        play_duration,
+        play_starttime,
+        play_endtime,
+        rank() over (order by play_duration) as rn -- 这里可以用row_number实现
+    from 
+        shoulei_bdl.bl_shoulei_play_native 
+    where ds='20180525' and appid='45'
+)a
+where rn%1000=0;
+```
+
+> 扩展2：多层分组的组内排序(有问题)
+
+```mysql
+select
+    *
+from
+(    
+    select a.ds as ds
+        ,a.appname as appname
+        ,b.city as city
+        ,count(distinct a.guid) device_num
+        ,rank() over(partition by ds,appname order by count(distinct a.guid)) as rk  -- 永远是底层的上一层
+    from
+    (
+        select guid as ds
+            ,flag1 as guid
+            ,flag2 as appname
+        from 
+            xmp_data_mid.guid_action 
+        where dtask='app' and dyear='app' and dmon='app'
+    )a
+    left join
+    (
+        select ds,guid,city  -- 存在很多没有关联到guid的情况
+        from shoulei_bdl.bl_shoulei_active_user_day
+        where ds>='20180801' and ds<='20180813' and appid='45' and last_active=ds
+    )b
+    on a.ds=b.ds and a.guid=b.guid
+    group by a.ds,a.appname,b.city
+)t
+where rk<6; 
+```
+
+> 比如1~3号，每天按app按城市取top10，即每个app的前十个城市
+
+**dense_rank()**
 
 ```mysql
 # dense_rank
@@ -1963,7 +2179,7 @@ rn2: 按照dept分组，
 
 lag
 
-```
+```shell
 LAG(col,n,DEFAULT) 用于统计窗口内往上第n行值,第一个参数为列名，第二个参数为往上第n行（可选，默认为1），第三个参数为默认值（当往上第n行为NULL时候，取默认值，如不指定，则为NULL）
 ```
 
@@ -1980,17 +2196,96 @@ limit 100;
 
  lead
 
-```
+```shell
 LEAD(col,n,DEFAULT) 用于统计窗口内往下第n行值,第一个参数为列名，第二个参数为往下第n行（可选，默认为1），第三个参数为默认值（当往下第n行为NULL时候，取默认值，如不指定，则为NULL）
 ```
 
 ```mysql
-
+# 待补充
 ```
 
 ###### [first_value/last_value](http://lxw1234.com/archives/2015/04/190.htm)
 
 first_value取分组内排序后，截止到当前行，第一个值,last_value取分组内排序后，截止到当前行，最后一个值
+
+```mysql
+#待补充
+```
+
+##### 数学函数-累积
+
+计算一定范围内、一定值域内或者一段时间内的累积和以及移动平均值等
+
+```mysql
+-- 演示表创建
+use xmp_data_mid;
+insert overwrite table filters_load partition(type='accum')
+select hour,count(*) from xmp_odl.zkpv where ds='20160702' group by hour order by hour;
+```
+
+###### 累积
+
+累积条数
+
+```mysql
+select hour
+    ,count(*) as hour_cnt
+    ,sum(count(*)) over (order by hour rows between unbounded preceding and current row) as accum_cnt
+from 
+    xmp_odl.zkpv 
+where ds='20160702' 
+group by hour;
+```
+
+> 注意：select的非移动窗口计算列必须在group by中，否则报错：
+>
+> ```
+> Failed to breakup Windowing invocations into Groups. At least 1 group must only depend on input columns. Also check for circular dependencies
+> ```
+
+###### 移动平均
+
+```mysql
+-- 累积条数、累积和、累积均值、3步移动平均
+select id as hour,f1 as cnt
+	,sum(f1) over(order by id rows between unbounded preceding and current row) -- 累积和
+    ,sum(f1) over(order by id rows between 1 preceding and 1 following)         -- 前后一小时之和
+    ,avg(f1) over(order by id rows between unbounded preceding and current row) -- 累积均值
+    ,avg(f1) over(order by id rows between 3 preceding and current row)         -- 前3小时的均值
+from
+    xmp_data_mid.filters_load
+where type='accum'
+group by id,f1;
+```
+
+结果如下：
+
+| 小时 | 数量  | 累积和 | 前后一小时和 | 累积均值 | 前3小时均值 |
+| ---- | ----- | ------ | ------------ | -------- | ----------- |
+| 00   | 6416  | 6416   | 10200        | 6416.00  | 6416.00     |
+| 01   | 3784  | 10200  | 12550        | 5100.00  | 5100.00     |
+| 02   | 2350  | 12550  | 7778         | 4183.33  | 4183.33     |
+| 03   | 1644  | 14194  | 5427         | 3548.50  | 3548.50     |
+| 04   | 1433  | 15627  | 4165         | 3125.40  | 2302.75     |
+| 05   | 1088  | 16715  | 3937         | 2785.83  | 1628.75     |
+| 06   | 1416  | 18131  | 5167         | 2590.14  | 1395.25     |
+| 07   | 2663  | 20794  | 9882         | 2599.25  | 1650.00     |
+| 08   | 5803  | 26597  | 17225        | 2955.22  | 2742.50     |
+| 09   | 8759  | 35356  | 25478        | 3535.60  | 4660.25     |
+| 10   | 10916 | 46272  | 31353        | 4206.55  | 7035.25     |
+| 11   | 11678 | 57950  | 35450        | 4829.17  | 9289.00     |
+| 12   | 12856 | 70806  | 37633        | 5446.62  | 11052.25    |
+| 13   | 13099 | 83905  | 38888        | 5993.21  | 12137.25    |
+| 14   | 12933 | 96838  | 39557        | 6455.87  | 12641.50    |
+| 15   | 13525 | 110363 | 40638        | 6897.69  | 13103.25    |
+| 16   | 14180 | 124543 | 41237        | 7326.06  | 13434.25    |
+| 17   | 13532 | 138075 | 41769        | 7670.83  | 13542.50    |
+| 18   | 14057 | 152132 | 43343        | 8006.95  | 13823.50    |
+| 19   | 15754 | 167886 | 47780        | 8394.30  | 14380.75    |
+| 20   | 17969 | 185855 | 51813        | 8850.24  | 15328.00    |
+| 21   | 18090 | 203945 | 51395        | 9270.23  | 16467.50    |
+| 22   | 15336 | 219281 | 44033        | 9533.96  | 16787.25    |
+| 23   | 10607 | 229888 | 25943        | 9578.67  | 15500.50    |
 
 ##### 数学函数-混合
 
@@ -1998,16 +2293,9 @@ first_value取分组内排序后，截止到当前行，第一个值,last_value�
 - reflect(class,method [,arg1 [,arg2..]])
 - hash(a1 [,a2...])
 
+###### reflect
 
-
-##### 数学函数-累积
-
-计算一定范围内、一定值域内或者一段时间内的累积和以及移动平均值等
-
-```mysql
-
-```
-
+反射java库的函数
 
 #### UDF
 
@@ -2099,8 +2387,6 @@ select reflect("类名","方法名",参数1,参数2,...);
 select reflect("java.lang.Math","max",2.6,9.8); #9.8
 select regexp_replace(reflect("java.util.UUID","randomUUID"),'-','');  
 ```
-
-
 
 #### Streaming操作
 
@@ -2203,7 +2489,27 @@ perl实现
 
 #### 细节
 
-##### 注释
+##### 运行技巧
+
+命令行和重定向
+
+```shell
+# -e方式
+hive -e "select * from xxxxx;" > xxxxx
+
+# -f方式
+hive -f  xxxx.hql > xxxxx
+
+# 重定向
+hive < xxxxx.hql > xxxx
+
+# 管道（注意分号不能少）
+echo "select * from xmp_xxx;" |hive  > xxxx
+```
+
+##### 注释和别名
+
+###### 注释
 
 hql脚本注释
 
@@ -2223,7 +2529,9 @@ select count(*) from dual;
 > select * from xx;
 > ```
 
-##### 中文别名
+###### 别名
+
+中文别名
 
 ```mysql
 select xx as `中文别名` from db.tbl;
@@ -2232,7 +2540,17 @@ select xx as `中文别名` from db.tbl;
 对于英文别名，直接写成 select xx as aliasxx,其中aliasxx不要再加引号
 ```
 
-##### order by 字段
+使用位置
+
+```mysql
+hive中的别名只能在select、order by中使用，在where、group by、having中均不能使用别名
+```
+
+》
+
+##### 字段细节
+
+###### order by 字段
 
 order by 是最后执行的，若对列(包含计算列)没有起别名，则\_c0,\_c1,\_c2分别对应相应的列
 
@@ -2257,7 +2575,38 @@ order by
 
 > 在orderby中可以使用别名
 
+###### group by 字段
+
+group by中字段要严格和select部分的字段一致，包括substr,if,case等的处理，都要在group by中体现出来
+
+```mysql
+# 不同的group by字段得到的是不同的结果
+select ds
+    ,substr(guid,-1)
+    ,if(rn>5,5,rn)
+    ,count(*)
+from
+    tbla
+where
+    xxxx
+group by ds
+    ,substr(guid,-1) -- guid
+    ,if(rn>5,5,rn); -- rn
+```
+
+> 在group by中不能使用别名
+
+##### 特殊处理
+
+###### NULL处理
+
+```mysql
+# NULL和任何值运算都是NULL，NULL是假
+select 1=1,NULL=1,NULL=NULL,NULL in (1,2),if(NULL in (1,2),'12','e'); #true NULL NULL NULL e
+```
+
 #### 字典数组
+
 ##### 数组集合
 
 函数一览
@@ -2372,16 +2721,16 @@ group by id,ed;
 
 额外函数：
 
-| 函数名              | 用法                                                         | 备注                                               |
-| ------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| xl_map_get(map,key) | select nvl(m2["k1"],''),nvl(xl_map_get(m2,"k1"),'') from high_test; | 获取map中指定的key值                               |
+| 函数名                 | 用法                                       | 备注                        |
+| ------------------- | ---------------------------------------- | ------------------------- |
+| xl_map_get(map,key) | select nvl(m2["k1"],''),nvl(xl_map_get(m2,"k1"),'') from high_test; | 获取map中指定的key值             |
 | xl_map_tag(v,map()) | select xl_map_tag('push_new',map('^1ps232','1','.\*push.\*','2')); --2 | 根据字段的值进行匹配，翻译成不同的值，类似维表翻译 |
-| xl_str_tag(x,x)     | 还有问题待升级                                               |                                                    |
+| xl_str_tag(x,x)     | 还有问题待升级                                  |                           |
 
 > ```mysql
 > # 查看key中是否含有某项
 > array_contains(map_keys(gameinfo),'wow')
-> 
+>
 > # xl_map_tag使用（map的顺序对最后的结果影响很大）
 > xl_map_tag(lower($1),map(
 > 	 'dl_create.*','1',
@@ -2471,7 +2820,7 @@ select xl2_json_map_habbo('{"userid":"228771123","is_year":"0","tq_id":"04","swi
 
 > str_to_map():
 >
-> 将字符串str按照指定分隔符转换成Map，第一个参数是需要转换字符串，第二个参数是键值对之间的分隔符，默认为逗号`,`;第三个参数是键值之间的分隔符，默认为`=`（也有一说为`:`）
+> 该还是是hive的原生函数，功能是将字符串str按照指定分隔符转换成Map，第一个参数是需要转换字符串，第二个参数是键值对之间的分隔符，默认为逗号`,`;第三个参数是键值之间的分隔符，默认为`=`（也有一说为`:`）
 
 **合并和分解**
 
@@ -3083,17 +3432,17 @@ lateral view explode(uids)ud as uid;
 错位间隔问题主要处理行之间的差值，主要在已排序的情况下，用以计算指定条件下的间隔计算问题,该技能可用于分析用户log。（扩展到mysql实现）
 
 | id   | s1   | rn1(排序生成) |
-| ---- | ---- | ------------- |
-| b1   | 1    | 1             |
-| a1   | 4    | 2             |
-| a1   | 6    | 3             |
-| a1   | 8    | 4             |
-| c1   | 12   | 5             |
-| b1   | 20   | 6             |
-| a1   | 32   | 7             |
-| c1   | 45   | 8             |
-| a1   | 67   | 9             |
-| a1   | 99   | 10            |
+| ---- | ---- | --------- |
+| b1   | 1    | 1         |
+| a1   | 4    | 2         |
+| a1   | 6    | 3         |
+| a1   | 8    | 4         |
+| c1   | 12   | 5         |
+| b1   | 20   | 6         |
+| a1   | 32   | 7         |
+| c1   | 45   | 8         |
+| a1   | 67   | 9         |
+| a1   | 99   | 10        |
 
 > ```mysql
 > select * from xmp_data_mid.tbl_a where dtask='dur';
@@ -3276,9 +3625,9 @@ where d.rn1 is null and c.rn1_pre!=0;
 - 小文件合并
 - 把握整体，单个作业的最优不如整体的最优
 
-#### 设置参数
+#### 设置优化
 
-参数一览
+##### 参数优化
 
 | 设置                                       | 意义     | 备注   |
 | ---------------------------------------- | ------ | ---- |
@@ -3286,7 +3635,18 @@ where d.rn1 is null and c.rn1_pre!=0;
 | hive.auto.convert.join.noconditionaltask = true; |        |      |
 | hive.auto.convert.join.noconditionaltask.size = 250000000; |        |      |
 | set hive.exec.mode.local.auto=true;      | 开启本地模式 |      |
-|                                          |        |      |
+| set hive.smalltable.filesize=250000000L; |        |      |
+| set hive.map.aggr=true;                  |        |      |
+| set hive.merge.mapredfiles=true;         |        |      |
+| set hive.merge.mapfiles=true;            |        |      |
+| set hive.merge.size.per.task=256000000;  |        |      |
+| set hive.merge.smallfiles.avgsize=16000000; |        |      |
+| set mapred.output.compression.type=BLOCK; |        |      |
+| set hive.exec.compress.output=true;      |        |      |
+| set hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat |        |      |
+| set mapred.max.split.size=100000000;     |        |      |
+| set mapred.min.split.size.per.node=100000000; |        |      |
+| set mapred.min.split.size.per.rack=100000000; |        |      |
 
 ```shell
 In order to change the average load for a reducer (in bytes):
@@ -3330,7 +3690,7 @@ HIVE="/usr/local/complat/cdh5.10.0/hive/bin/hive
 -hiveconf hive.groupby.skewindata=false"
 ```
 
-##### 设置reduce的个数
+设置reduce的个数
 
 ```shell
 set mapred.reduce.tasks=18;
@@ -3339,7 +3699,7 @@ set mapred.reduce.tasks=18;
 set hive.exec.reducers.max=128;
 ```
 
-##### 开启本地模式
+开启本地模式
 
 ```mysql
 hive> set hive.exec.mode.local.auto=true;(默认为false)
@@ -3351,7 +3711,7 @@ hive> set hive.exec.mode.local.auto=true;(默认为false)
 ```
 
 
-#### 数据倾斜
+##### 数据倾斜
 
 ```shell
 set hive.groupby.skewindata=true;
@@ -3398,7 +3758,7 @@ group by
 
 > FAILED: SemanticException [Error 10022]: DISTINCT on different columns not supported with skew in data
 
-#### 合并小文件
+##### 合并小文件
 
 ```shell
 # 合并小文件
@@ -3412,6 +3772,196 @@ set hive.exec.reducers.max=128;
 ```
 
 > 备注:一般将数据倾斜和合并小文件放在一起使用
+
+#### 查询优化
+
+减少对表的多次查询，尽量在一次查询中将所有数据导出，此外要尽量减少join的使用
+
+##### 合并插入
+
+###### 多表插入
+
+hive支持查询一次表，获取多种结果并且插入到不同的表或目录中
+
+```mysql
+set hive.exec.compress.output=false;
+use xmp_data_mid;
+from xmp_data_mid.high_test
+insert overwrite local directory './tmp/t1.xxt'  -- 插入1
+	row format delimited 
+	fields terminated by '\t' 
+	collection items terminated by ',' 
+	map keys terminated by ":" 
+select id,s1
+where id=1
+insert overwrite local directory './tmp/t5.xxt'  -- 插入2
+select id,s1,s2,m1 -- 输出的列数可以不一致
+where id=5
+insert overwrite table vvv partition(ds='xxx')   -- 插入3
+select id,s1,s2,m1 -- 输出的列数可以不一致
+where id=3;
+```
+
+> from 也可以用子查询:
+>
+> ```mysql
+> from (select day as id,cookieid as s1 from highfun_test limit 10)a 
+> select id,count(distinct s1)
+> group by id;
+> ```
+>
+> 但是不支持union all或者其他操作：
+>
+> ```mysql
+> # 情形1：不支持insert union all
+> from xmp_data_mid.high_test
+> insert overwrite local directory ''
+> select id,n1 where id=1
+> union all
+> from (select day as id,cookieid as s1 from highfun_test limit 10)a 
+> select id,s1 where id='2015-03-15';
+>
+> # 报错：FAILED: SemanticException The abstract syntax tree is null
+>
+> # 情形2：支持同一张表的相同字段的union all
+> from xmp_data_mid.high_test
+> -- 此处不能有insert overwrite操作
+> select id,n1 where id=1
+> union all
+> from xmp_data_mid.high_test 
+> select id,n2 where id=2
+>
+> # 情形3：支持不同from的union all，但要求字段名一致
+> from xmp_data_mid.high_test
+> select id,n1 where id=1
+> union all
+> from (select day as id,cookieid as n1 from highfun_test limit 10)a 
+> select id,n1 where id='2015-03-10';
+> ```
+
+###### 并行遍历
+
+```mysql
+position=('position1' 'position2' 'position3' )
+connditions=('conn1' 'conn2' 'conn3')
+tbls=('tbla' 'tbla' 'tblc')
+for i in $(seq 0 $((${#position[@]}-1)));do
+    hql="use xmp_data_mid;
+        insert overwrite table tbl_xx partition(ds='$date',appid='45',position='${position[$i]}')
+        select
+             xxxx
+        from
+            ${tbls[$i]}
+        where ${connditions[$i]}"
+    echo "$hql"
+done
+```
+
+###### 动态分区组合
+
+```mysql
+insert overwrite table tblxx partition(ds='$date',position)
+select
+    'position1'
+from
+    tbl_a
+where xxx
+union all
+select
+    'position2'
+from
+    tbl_a
+where xxx
+union all
+select
+    'position3'
+from
+    tbl_c
+where xxx
+```
+
+改进1:
+
+```mysql
+# 从一张表中查多次，插入多次
+```
+
+改进2：
+
+```mysql
+# 从不同的表中查
+```
+
+##### 长宽格式
+
+###### 单表
+
+这两种查询方式哪种效率更高，怎么测试
+
+宽格式查询
+
+```mysql
+select
+    ds
+    ,substr(guid,-1)
+    ,sum(if(attribute1='attr1',1,0))
+    ,count(distinct if(attribute1='attr1',guid,null))
+    ,sum(if(attribute1='attr2',1,0))
+    ,count(distinct if(attribute1='attr2',guid,null))
+    ,sum(if(attribute1='attr3',1,0))
+    ,count(distinct if(attribute1='attr3',guid,null))
+    ,sum(if(attribute1='attr4',1,0))
+    ,count(distinct if(attribute1='attr4',guid,null))
+    ,sum(if(attribute1='attr5',1,0))
+    ,count(distinct if(attribute1='attr5',guid,null))
+    ,sum(if(attribute1='attr6',1,0))
+    ,count(distinct if(attribute1='attr6',guid,null))
+    ,sum(if(attribute1='attr7',1,0))
+    ,count(distinct if(attribute1='attr7',guid,null))
+    ,sum(if(attribute1='attr8',1,0))
+    ,count(distinct if(attribute1='attr8',guid,null))
+from
+    tbl_xx
+where
+    ds='$date' and appid='45'
+    attribute1 in ('attr1','attr2','attr3','attr4','attr5','attr6','attr7','attr8') 
+group by  ds,substr(guid,-1);
+```
+
+长格式查询
+
+```mysql
+select
+     ds
+    ,attribute1
+    ,substr(guid,-1)
+    ,count(*)
+    ,count(distinct guid)
+from
+    tbl_xx
+where
+    ds='$date' and appid='45'
+    attribute1 in ('attr1','attr2','attr3','attr4','attr5','attr6','attr7','attr8') 
+group by ds,attribute1,substr(guid,-1);
+```
+
+> 长格式的查询结果进行行转列转换得到宽格式
+
+###### 多表
+
+多表的查询，主要体现在是使用join进行列扩展，还是使用union进行行扩展
+
+列扩展
+
+```
+
+```
+
+行扩展
+
+```mysql
+
+```
 
 ### 备份
 
@@ -3439,11 +3989,96 @@ create table db1.xxx as select * from db2.xxx;
 
 #### 导入
 
+数据类型导入格式
+
+map类型
+
+```shell
+a00     b0:b01,b1:b11   {"c0":"1","c1":2}
+a01     b1:b11,b2:b12   {"c1":"3","c2":"2"}
+a02     b2:b12,b3:b13   {"d":"1"}
+a03     b3:b13,b4:b14   {}
+```
+
+> 导入格式的分割符与表创建时指定的分割符有关，此处是：
+>
+> ```mysql
+> CREATE TABLE `map_test`(
+>   `a` string, 
+>   `b` map<string,string>, 
+>   `c` string)
+> ROW FORMAT SERDE 
+>   'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' 
+> WITH SERDEPROPERTIES ( 
+>   'colelction.delim'=',', 
+>   'field.delim'='\t', 
+>   'mapkey.delim'=':', 
+>   'serialization.format'='\t') 
+> STORED AS INPUTFORMAT 
+>   'org.apache.hadoop.mapred.TextInputFormat' 
+> OUTPUTFORMAT 
+>   'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat';
+> ```
+
+struct类型
+
+```data
+1,zhou:30
+2,yan:30
+3,chen:20
+4,li:80
+```
+
+> 导入格式的分割符与表创建时指定的分割符有关，此处是：
+>
+> ```mysql
+> CREATE TABLE `struct_test`(
+>   `id` int, 
+>   `info` struct<name:string,age:int>)
+> ROW FORMAT SERDE 
+>   'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' 
+> WITH SERDEPROPERTIES ( 
+>   'colelction.delim'=':', 
+>   'field.delim'=',', 
+>   'serialization.format'=',') 
+> STORED AS INPUTFORMAT 
+>   'org.apache.hadoop.mapred.TextInputFormat' 
+> OUTPUTFORMAT 
+>  'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat';
+> ```
+
+array类型
+
+```data
+0,1    ,,
+0,v    b20,,b22
+a,1    ,b31,b32
+```
+
+> 导入格式的分隔符与表创建时指定的分割符有关，此处是：
+>
+> ```mysql
+> CREATE TABLE `array_test`(
+>   `a` array<int>, 
+>   `b` array<string>)
+> ROW FORMAT SERDE 
+>   'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe' 
+> WITH SERDEPROPERTIES ( 
+>   'colelction.delim'=',', 
+>   'field.delim'='\t', 
+>   'serialization.format'='\t') 
+> STORED AS INPUTFORMAT 
+>   'org.apache.hadoop.mapred.TextInputFormat' 
+> OUTPUTFORMAT 
+>   'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat';
+> ```
+
 ##### 文件导入
 
 ```mysql
 # 基本
-load data local inpath '/liguodong/hive/data' [overwrite]  into table test partition (country='china');
+load data local inpath '/ligu/data' into table test partition (country='china');
+load data local inpath '/ligu/data' overwrite into table test partition (country='china');
 
 # 升级
 ihql="use kankan_odl;delete from tbname where ds='${date}';
@@ -3451,7 +4086,7 @@ ihql="use kankan_odl;delete from tbname where ds='${date}';
 ${HIVE} -e "{chql}"
 ```
 
-> 注意`overwrite`的使用
+> 注意`overwrite`的使用，此外在load的实分区名一定要加引号，导出的时候可以不加
 
 ##### 其它表
 
@@ -3467,32 +4102,94 @@ where ds='20180521';
 
 #### 导出
 
-##### 导出到文件
+##### 本地文件
 
-- 命令行输出重定向
+数据类型导出格式
+
+map
+
+```shell
+# map导出json格式
+a       {"id":"0x10800005","code":"91zhushou"}
+a       {"id":"channel_id","code":"channel_code"} 
+```
+
+struct
+
+```data
+# struct导出json格式
+1       {"name":"zhou","age":30}
+2       {"name":"yan","age":30}
+3       {"name":"chen","age":20}
+4       {"name":"li","age":80}
+```
+
+array
+
+```data
+# array导出数组格式
+[0,1]   ["b00","b01"]
+[0,1]   ["b00","b01"]
+[0,1]   ["b00","b01"]
+```
+
+###### 命令行重定向
+
+hive -e方式
 
 ```shell
 hql="use kankan_odl;select '${date}',fu3,fu2,count(*) from xmpcloud2 where ds='{date}' and length(fu4)=16 group by fu3,fu2;"
 ${HIVE} -e "${hql}" > xmp_cloud_20161201
 ```
 
-- 导出数据到本地文件(并[指定字段分割方式](https://www.2cto.com/database/201506/412250.html))
+> 注意单引号和双引号之间的配对关系
 
-```sql
-insert overwrite local directory '/data/access_log/access_log.45491' row format delimited fields terminated by '\t' collection items terminated by ',' select * from xx
+hive -f方式
+
+```shell
+xxxx.hql
+hive -f xxx.hql >xxx.data
 ```
 
-##### 导出到其源
+###### 直接写本地文件
+
+```sql
+set hive.exec.compress.output=false; --指定输出是否压缩
+insert overwrite local directory '/data/access_log' 
+row format delimited fields terminated by '\t' collection items terminated by ',' 
+select * from xx
+```
+
+备注：
+
+- 导出的时候可以[指定输出格式](https://www.2cto.com/database/201506/412250.html)
+- 只能导出到目录，目录里会自动生成hive自动命名的文件（个数=redudce个数），不能指定到文件
+
+- 如果设置了数据输出压缩，则导出的格式就是压缩后的格式，查看压缩格式的hadoop命令是：
+
+##### 其它源
+
+###### 导出到MySQL
 
 ```mysql
+# 待补充
+```
 
+###### 导出到ES
+
+```mysql
+# 待补充
 ```
 
 ### 问题
 
 #### 面试
 
-//待添加
+//待添加，主要还是涉及还是优化问题
+
+##### hive支持不支持修改
+
+hive支持[delete和update操作](http://www.cnblogs.com/kekukekro/p/6340974.html)，但是需要额外配置，此外不到万不得已的时候不建议这种操作，这违背了hive设计的初衷
 
 #### 查询
 
@@ -3607,9 +4304,11 @@ select mid, money, name from store cluster by mid sort by money
 set hive.groupby.skewindata=true;
 ```
 
+
+
 ## 参考
 
-- 基础
+- **基础**
 
   [ApacheHive权威参考手册（推荐）](https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.3.4/bk_dataintegration/content/new-feature-insert-values-update-delete.html)
 
@@ -3629,7 +4328,7 @@ set hive.groupby.skewindata=true;
 
   [Hive数据类型和函数参考大全（推荐）](https://blog.csdn.net/xiaolang85/article/details/8645647)
 
-- 函数
+- **函数**
 
   [HIVE2.0函数大全(推荐)](https://www.cnblogs.com/MOBIN/p/5618747.html#1)
 
@@ -3647,13 +4346,17 @@ set hive.groupby.skewindata=true;
 
   [HIVE窗口分析函数ntile、row_number、rank、dense_rank](http://lxw1234.com/archives/2015/04/181.htm)
 
-- 查询
+  [hive rank()函数详解](https://www.cnblogs.com/wglwgl/p/6178253.html)
+
+- **查询**
 
   [连接参考](http://www.cnblogs.com/pcjim/articles/799302.html)
 
   [hive join操作列表](http://lxw1234.com/archives/2015/06/315.htm)
 
-- 积累
+  [hive exists和in解决方案](https://blog.csdn.net/wisdom_c_1010/article/details/78774129)
+
+- **积累**
 
   [HIVE数据迁移](http://blog.csdn.net/u9999/article/details/34119441)
 

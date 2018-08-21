@@ -51,17 +51,15 @@ R数据分析R包一览：
 
 #### 数据转换
 
-长宽格式转换又称行列转换，长数据至少有一列是变量的类型，一列是变量的值，ggplot2中处理的大多都是长数据类型，大多模型比如`lm`,`glm`和`gam`等都利用的也都是长数据
+长宽格式转换又称行列转换，长数据至少有一列是变量的类型，一列是变量的值，ggplot2中处理的大多都是长数据类型，大多模型比如`lm`,`glm`和`gam`等都利用的也都是长数据，处理数据转换主要是两个reshape2包和tidyr包，其对应的函数功能如下:
 
-##### R包说明
-
-| reshape2 | tidyr    | 功能               |
-| -------- | -------- | ---------------- |
-| melt     | gather   | 函数对宽数据进行处理，得到长数据 |
-| cast     | spread   | 函数对长数据进行处理，得到宽数据 |
-|          | unit     | 列合并              |
-| colsplit | separate | 列拆分              |
-|          |          |                  |
+| reshape2包 | tidyr包  | 功能                             |
+| ---------- | -------- | -------------------------------- |
+| melt       | gather   | 函数对宽数据进行处理，得到长数据 |
+| cast       | spread   | 函数对长数据进行处理，得到宽数据 |
+|            | unit     | 列合并                           |
+| colsplit   | separate | 列拆分                           |
+|            |          |                                  |
 
 例子:
 
@@ -93,7 +91,7 @@ R数据分析R包一览：
 # 12     temp 83.968
 ```
 
-##### reshape2包
+##### reshape2
 
 reshape2 用得比较多的是`melt`和`cast`两个函数。
 
@@ -137,7 +135,7 @@ aqws <- dcast(aql, month ~ variable, fun.aggregate = mean, na.rm = TRUE)
 head(aqws)
 ```
 
-在dcast的过程长数据变宽数据，可对宽数据使用聚合函数,演示例子如下：
+在dcast的过程长数据变宽数据，可对宽数据使用聚合函数，演示例子如下：
 
 ```R
 > head(airquality)
@@ -194,14 +192,14 @@ Aggregation function missing: defaulting to length
 5     9 31.44828 167.4333 10.180000 76.90000
 ```
 
-##### tidyr包
+##### tidyr
 
 1. `gather`    — 宽数据转为长数据。类似于`reshape2`包中的`melt`函数
 2. `spread`    — 长数据转为宽数据。类似于`reshape2`包中的`cast`函数
 3. `unit`        — 多列合并为一列
 4. `separate ` — 将一列分离为多列
 
-- **spread**
+**spread**
 
 ```R
 spread(data, key, value, fill = NA, convert = FALSE, drop = TRUE)
@@ -371,13 +369,15 @@ qplot(carat,price,data=dsmall,geom=c("point","smooth"),method="lm",formula=y~x) 
 
 //待补充
 
-### 时间序列分析
+### 时间序列
 
 //待补充
 
 ### 知识积累
 
-#### table函数
+#### 函数
+
+##### table函数
 
 table函数的数据输出，可以看成是一个带名字的数字向量。可以用names()和as.numeric()分别得到名称和频数
 
@@ -427,7 +427,7 @@ dev.off()
 
 ## 参考
 
-- 数据清洗
+- **数据清洗**
 
   [reshape2长宽格式转换](http://www.jianshu.com/p/31d4512ed97f)
 
@@ -437,11 +437,11 @@ dev.off()
 
   [table函数的数据输出转化](https://www.zhihu.com/question/46661384)
 
-- 回归分析
+- **回归分析**
 
   [在R语言中进行局部多项式回归拟合（LOESS）](http://www.dataguru.cn/article-1525-1.html)
 
-- 知识积累
+- **知识积累**
 
   [R的案列学习（Github）推荐](https://github.com/ljtyduyu/DataWarehouse/tree/master/File)
 
