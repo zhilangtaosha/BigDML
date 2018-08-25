@@ -1318,11 +1318,11 @@ select * from a where a.id IN (SELECT b.id FROM b WHERE b.x='1');
 select * from a left semi join b on(a.id=b.id and b.x='1');
 ```
 
-##### 连接解疑
+##### 注意事项
 
 主要处理on的多条件和where顺序
 
-###### ==join中的on和where执行顺序==
+###### on和where执行顺序
 
 ```mysql
 # inner join中on和where的顺序对执行结果无影响
@@ -1330,6 +1330,54 @@ select * form tab1 left join tab2 on (tab1.size = tab2.size and tab2.name='AAA')
 ```
 
 ![on和where顺序](http://tuling56.site/imgbed/2018-07-13_163312.png)
+
+###### on逻辑运算
+
+目前在hive的join中只支持and操作，不支持or操作，提示如下：
+
+```mysql
+FAILED: SemanticException [Error 10019]: Line 21:22 OR not supported in JOIN currently '2'
+```
+
+###### on等值连接
+
+//待补充
+
+###### on不等值连接
+
+两个表join的时候，不支持两个表的字段的非相等操作.
+
+例1：
+
+```mysql
+right JOIN test.dim_month_date p2                                                                on p1.month=p2.y_month and p1.day<=p2.day
+
+#可以改写成
+right JOIN test.dim_month_date_zyy p2
+   on p1.month=p2.y_month 
+where p1.day<=p2.day
+```
+
+例2：
+
+```mysql
+SELECT *
+FROM table1
+RIGHT JOIN table2
+ON(TRUE)
+WHERE LOCATE(table1.y,table2.x)>0;
+```
+
+> - 该功能的mysql实现是：
+>
+> ```mysql
+> SELECT *
+> FROM table1
+> RIGHT JOIN table2
+> ON table2.x LIKE CONCAT('%' , table2.y , '%');
+> ```
+>
+> - locate函数可以用来判断子串
 
 ##### 集合运算
 
@@ -1365,21 +1413,35 @@ grouping sets ((),(a,b,c),(a,c))
 ##### with cube
 
 ```mysql
-group by xx1,xx2,xx3
+group by x1,x2,x3
 with cube
 
 # 其等效于
-group by xx1,xx2,xx3
-grouping sets((),(xx1),(xx1,xx2),(xx1,xx2,xx3));
+group by x1,x2,x3
+grouping sets(()
+              ,(x1),(x1,x2),(x1,x3),
+              ,(x2),(x2,x3)
+              ,(x3)
+              ,(x1,x2,x3)
+             );
 ```
+
+> with cube是所有组合方式，及全组合
 
 ##### [with rollup](http://lxw1234.com/archives/2015/04/193.htm)
 
 以最左侧的维度为准，进行层级聚合
 
 ```mysql
+group by x1,x2,x3
+with cube
 
+# 其等效于
+group by x1,x2,x3
+grouping sets((),(x1),(x1,x2),(x1,x2,x3));
 ```
+
+> withe rollup是with cube的子集
 
 ### 函数
 
@@ -1549,6 +1611,27 @@ select concat('foo','bar');
 select concat_ws('_',array('1','2','3')); #可以直接拼接数组
 select concat_ws('_',collect_list(xxx));
 ```
+
+###### 字符串包含
+
+判断一个字符串是否包含另一个字符串，也可以归结为字符串匹配问题
+
+```mysql
+locate(substr , str) #函数，如果包含，则返回 >0 的数，否则返回0。
+或者使用like，rlike等固定的方式
+```
+
+hive join实现的字符串匹配
+
+```mysql
+SELECT *
+FROM table1
+RIGHT JOIN table2
+ON(TRUE)
+WHERE LOCATE(table1.y,table2.x)>0
+```
+
+> 这个方法可以用来实现多条件筛选哈
 
 ##### 数字计算
 
@@ -2424,6 +2507,8 @@ from xmp_odl.xmpplaydur where ds='$date' limit 1000;
 
 ######  reduce
 
+例子1：
+
 ```mysql
 add file t_stat_url_upload_split_mapper.py;
 from(
@@ -2436,6 +2521,27 @@ insert overwrite table kankan_bdl.t_stat_url_upload_split partition(ds='${date}'
 reduce a.furl,a.fip,a.ftime
 using 't_stat_url_upload_split_mapper.py'
 as install,channel,peerid,version, package_name, installtype,fip,ftime ;
+```
+
+例子2：
+
+```mysql
+set mapred.reduce.tasks=32;
+use shoulei_bdl;
+from (
+    select * from (
+        select guid,activeweek_arr,ds,appid
+        from bl_shoulei_w_user_acc
+        where ds='${startdate_lw}' and appid='${appid}'
+        union all
+        select guid,array('${startdate}') activeweek_arr,ds,appid
+        from bl_shoulei_w_active where ds='${startdate}' and appid='${appid}'
+    ) t cluster by appid,guid
+) a
+insert overwrite table bl_shoulei_w_user_acc partition(ds='${startdate}',appid,usertype)
+reduce a.*
+using 'python bl_shoulei_week_mapper.py ${startdate} ${startdate_lw}'
+as guid string,activeweek_arr array<string>,appid string,usertype string;
 ```
 
 > 处理后插入到新表中
@@ -3629,24 +3735,26 @@ where d.rn1 is null and c.rn1_pre!=0;
 
 ##### 参数优化
 
-| 设置                                       | 意义     | 备注   |
-| ---------------------------------------- | ------ | ---- |
-| hive.auto.convert.join=true;             |        |      |
-| hive.auto.convert.join.noconditionaltask = true; |        |      |
-| hive.auto.convert.join.noconditionaltask.size = 250000000; |        |      |
-| set hive.exec.mode.local.auto=true;      | 开启本地模式 |      |
-| set hive.smalltable.filesize=250000000L; |        |      |
-| set hive.map.aggr=true;                  |        |      |
-| set hive.merge.mapredfiles=true;         |        |      |
-| set hive.merge.mapfiles=true;            |        |      |
-| set hive.merge.size.per.task=256000000;  |        |      |
-| set hive.merge.smallfiles.avgsize=16000000; |        |      |
-| set mapred.output.compression.type=BLOCK; |        |      |
-| set hive.exec.compress.output=true;      |        |      |
-| set hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat |        |      |
-| set mapred.max.split.size=100000000;     |        |      |
-| set mapred.min.split.size.per.node=100000000; |        |      |
-| set mapred.min.split.size.per.rack=100000000; |        |      |
+| 设置                                                         | 意义               |
+| ------------------------------------------------------------ | ------------------ |
+| hive.auto.convert.join=true;                                 | 自动转换mapjoin    |
+| hive.auto.convert.join.noconditionaltask = true;             | 无条件转换         |
+| hive.auto.convert.join.noconditionaltask.size = 250000000;   | 有条件转换         |
+| set hive.exec.mode.local.auto=true;                          | 开启本地模式       |
+| set hive.smalltable.filesize=250000000L;                     | 设置小表的大小     |
+| set hive.map.aggr=true;                                      | map阶段自动聚合    |
+| set hive.merge.mapredfiles=true;                             |                    |
+| set hive.merge.mapfiles=true;                                |                    |
+| set hive.merge.size.per.task=256000000;                      |                    |
+| set hive.merge.smallfiles.avgsize=16000000;                  |                    |
+| set mapred.output.compression.type=BLOCK;                    | 输出压缩方式       |
+| set hive.exec.compress.output=true;                          | 输出压缩           |
+| set hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat | 合并输入           |
+| set mapred.max.split.size=100000000;                         |                    |
+| set mapred.min.split.size.per.node=100000000;                |                    |
+| set mapred.min.split.size.per.rack=100000000;                |                    |
+| mapred.reduce.tasks                                          | 设置reduce个数     |
+| hive.exec.reducers.max                                       | 设置最大reduce个数 |
 
 ```shell
 In order to change the average load for a reducer (in bytes):
@@ -3661,8 +3769,8 @@ In order to set a constant number of reducers:
 
 ```shell
 HIVE="/usr/local/complat/cdh5.10.0/hive/bin/hive  
--hiveconf mapreduce.job.name=xxstat_hive 
--hiveconf mapred.job.queue.name=root.shoulei
+-hiveconf mapreduce.job.name=xxstat_hive      # 设置作业名
+-hiveconf mapred.job.queue.name=root.shoulei  # 设置作业队列名
 
 # 输入输出
 -hiveconf hive.exec.compress.output=true 
@@ -3710,14 +3818,17 @@ hive> set hive.exec.mode.local.auto=true;(默认为false)
 3.job的reduce数必须为0或者1
 ```
 
-
 ##### 数据倾斜
+
+###### 解决方案
+
+**方案1：**skewindata设置
 
 ```shell
 set hive.groupby.skewindata=true;
 ```
 
-注意下面语句的报错：
+> 注意下面语句的报错：
 
 ```mysql
 -- hive优化公共项
@@ -3751,12 +3862,31 @@ where
     and eventname='android_dl_center_action'
     and attribute1='dl_center_detail_click'
     and cv rlike '^5.58'
-group by
-    ds
+group by  ds
     ,substr(guid,-1);
 ```
 
 > FAILED: SemanticException [Error 10022]: DISTINCT on different columns not supported with skew in data
+
+**方案2：**map join
+
+只有在数据连接的情况下实用
+
+**方案3：**数据拆分
+
+数据拆分，然后再合并，会造成逻辑复杂，维护困难
+
+**方案4：**数据过滤
+
+剔除部分数据，避免数据倾斜，实际实用的场景很小
+
+##### 动态分区
+
+```shell
+set hive.exec.dynamic.partition=true;
+set hive.exec.dynamic.partition.mode=nonstrict;
+set hive.exec.max.dynamic.partitions.pernode=1000;
+```
 
 ##### 合并小文件
 
@@ -4091,7 +4221,15 @@ ${HIVE} -e "{chql}"
 ##### 其它表
 
 ```mysql
+# 插入
 insert [overwrite] into table tmp2 partition(ds='20180521') 
+select attribute1,is_core,user_type,comment,appid 
+from 
+	ftbl_dim_shoulei_dau_flag 
+where ds='20180521';
+
+# 覆盖写入
+insert overwrite  table tmp2 partition(ds='20180521') 
 select attribute1,is_core,user_type,comment,appid 
 from 
 	ftbl_dim_shoulei_dau_flag 
