@@ -282,8 +282,12 @@ load data local inpath "group.txt"  overwrite into table group_test;
 
 字符串转整型
 
-```
+```mysql
 cast(string as int)
+# 注意超界的处理
+select cast('1536709198380' as int);  # NULL
+select cast('1536709198380' as bigint);  #1536709198380
+select nvl(cast('1536709198380' as int),0); #0
 ```
 
 ###### 日期类型 
@@ -316,53 +320,7 @@ cast(xxint as string);
 
 #### 属性设置
 
-##### hive命令行
-
-```shell
-# 静音模式
-$HIVE_HOME/bin/hive -S -e 'select a.col from tab1 a'
-# #加入-S，终端上的输出不会有mapreduce的进度，执行完毕，只会把查询结果输出到终端上。这个静音模式很实用，,通过第三方程序调用，第三方程序通过hive的标准输出获取结果集。
-
-# 设置
-set <key>=<value>	修改特定变量的值
-注意: 如果变量名拼写错误，不会报错
-set	输出用户覆盖的hive配置变量
-set -v	输出所有Hadoop和Hive的配置变量
-
-# 资源和分布式缓存
-add FILE[S] <filepath> <filepath>* 
-add JAR[S] <filepath> <filepath>* 
-add ARCHIVE[S] <filepath> <filepath>*	添加 一个或多个 file, jar,  archives到分布式缓存
-list FILE[S] 
-list JAR[S] 
-list ARCHIVE[S]	输出已经添加到分布式缓存的资源。
-list FILE[S] <filepath>* 
-list JAR[S] <filepath>* 
-list ARCHIVE[S] <filepath>*	检查给定的资源是否添加到分布式缓存
-delete FILE[S] <filepath>* 
-delete JAR[S] <filepath>* 
-delete ARCHIVE[S] <filepath>*
-
-# 执行
-! <command>	从Hive shell执行一个shell命令
-source FILE <filepath>	在CLI里执行一个hive脚本文件
-```
-
-##### hiveconf参数
-
-```shell
-HIVE_2="/usr/local/complat/complat_clients/cli_bin/hive  
--hiveconf mapred.job.name=kkstat_hive 
--hiveconf hive.exec.compress.output=true 
--hiveconf hive.groupby.skewindata=false 
--hiveconf hive.exec.compress.intermediate=true 
--hiveconf io.seqfile.compression.type=BLOCK 
--hiveconf mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec 
--hiveconf hive.map.aggr=true 
--hiveconf hive.stats.autogather=false 
--hiveconf hive.exec.scratchdir=/user/kankan/tmp  
--hiveconf mapred.job.queue.name=kankan -S "
-```
+##### 属性说明
 
 | 功能                                      | 语法                                       |
 | --------------------------------------- | ---------------------------------------- |
@@ -379,6 +337,96 @@ HIVE_2="/usr/local/complat/complat_clients/cli_bin/hive
 | 执行map前开启小文件合并                           | hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat |
 | 是否根据输入表的大小自动转成map  join                 | hive.auto.convert.join=false             |
 | hive.groupby.skewindata                 | 当数据出现倾斜时，如果该变量设置为true，那么Hive会自动进行负载均衡。   |
+
+##### 设置方法
+
+可通过以下三种方法，优先级依次递增，set>hiveconf>hive_site.xml
+
+###### hive_site.xml
+
+在${HIVE_HOME}/conf目录下
+
+```xml
+<configuration>
+	<property>
+        <name>hive.merge.smallfiles.avgsize</name>
+        <value>33554432</value>
+    </property>
+    <property>
+        <name>hive.auto.convert.join</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.mapjoin.smalltable.filesize</name>
+        <value>20971520</value>
+    </property>
+</configuration>
+```
+
+###### -hiveconf
+
+在启动Hive cli的时候进行配置，可以在命令行添加-hiveconf param=value来设定参数 
+
+```shell
+HIVE_2="/usr/local/complat/complat_clients/cli_bin/hive  
+-hiveconf mapred.job.name=kkstat_hive 
+-hiveconf hive.exec.compress.output=true 
+-hiveconf hive.groupby.skewindata=false 
+-hiveconf hive.exec.compress.intermediate=true 
+-hiveconf io.seqfile.compression.type=BLOCK 
+-hiveconf mapred.output.compression.codec=org.apache.hadoop.io.compress.GzipCodec 
+-hiveconf hive.map.aggr=true 
+-hiveconf hive.stats.autogather=false 
+-hiveconf hive.exec.scratchdir=/user/kankan/tmp  
+-hiveconf mapred.job.queue.name=kankan -S "
+```
+
+###### set命令
+
+在已经进入cli时进行参数声明，可以在HQL中使用SET关键字设定参数 
+
+```shell
+# 静音模式
+hive -S -e 'select a.col from tab1 a'
+# #加入-S，终端上的输出不会有mapreduce的进度，执行完毕，只会把查询结果输出到终端上。这个静音模式很实用,通过第三方程序调用，第三方程序通过hive的标准输出获取结果集。
+
+# 设置
+set <key>=<value>  修改特定变量的值 #注意: 如果变量名拼写错误，不会报错
+set	输出用户覆盖的hive配置变量
+set -v	输出所有Hadoop和Hive的配置变量
+```
+
+资源和分布式缓存
+
+```shell
+# 资源和分布式缓存
+add FILE[S] <filepath> <filepath>* 
+add JAR[S] <filepath> <filepath>* 
+add ARCHIVE[S] <filepath> <filepath>*	添加 一个或多个 file, jar,  archives到分布式缓存
+
+list FILE[S] 
+list JAR[S] 
+list ARCHIVE[S]	输出已经添加到分布式缓存的资源。
+
+list FILE[S] <filepath>* 
+list JAR[S] <filepath>* 
+list ARCHIVE[S] <filepath>*	检查给定的资源是否添加到分布式缓存
+
+delete FILE[S] <filepath>* 
+delete JAR[S] <filepath>* 
+delete ARCHIVE[S] <filepath>*
+
+```
+
+执行
+
+```shell
+# 执行
+! <command>	从Hive shell执行一个shell命令
+source FILE <filepath>	在CLI里执行一个hive脚本文件
+```
+
+
 
 #### 表和视图
 
@@ -629,7 +677,7 @@ insert overwrite table xxx partition(ds=xxx);
 insert into  table xxx partition(ds=xx);
 ```
 
-> 使用insert into插入的时候需要指定所有的分区，不然提示失败
+> 使用insert into插入的时候需要指定所有的分区，不然提示失败，也即不能留空白分区(动态分区除外)
 
 [动态分区和静态分区](http://www.aboutyun.com/home.php?mod=space&uid=1415&do=blog&quickforward=1&id=3093)
 
@@ -654,7 +702,11 @@ Dropped the partition dtask=meizu/dyear=2017/dmon=201705
 Dropped the partition dtask=meizu/dyear=2017/dmon=201706
 ```
 
-> 问题：为什么在insert overwrite table之前一般都先使用这个语句删除对应的分区
+> 问题：为什么在insert overwrite table之前一般都先使用这个语句删除对应的分区,解释如下：
+>
+> ```
+> hive的表是基于分区存储的，若先用insert overwrite创建了分区，但是之后修改了表结构，例如添加了字段，此时若不重建分区，可以正常的插入(不会报字段数不匹配的问题)，但在select的时候得到的新分区字段的内容为NULL
+> ```
 
 ###### 修改分区
 
@@ -796,7 +848,38 @@ drop table if exists $tbl;
 alter table dog drop partition(sex='boy');
 ```
 
-> 删除分区的时候必须逐层指定，删除顶层分区的话，其子分区也会一并删除
+> 删除分区的时候必须逐层指定，删除顶层分区的话，其子分区也会一并删除,也即意味着分区是有先后关系的，此外在插入分区的时候必须要指定所有分区，然后才能插入
+
+#### 文件操作
+
+##### 文件格式
+
+- Textfile
+
+  •默认格式，直接读取，占用空间大，常用gzip压缩。
+
+  •hive不会对数据进行切分，从而无法对数据进行并行操作
+
+  •上传：先压缩成.gz格式 再 用hadoop fs –put命令
+
+  •.gz文件查看：hadoop fs –cat file | gzip –d –c | more
+
+- Sequence file
+
+  •含有键值对的二进制文件，支持块级别和记录级别压缩，可进行块级别压缩以便并行处理。
+
+  •上传：PutSeq
+
+  •.seq文件查看：hadoop –text file | more
+
+##### 文件上传
+
+```shell
+hadoop fs -rm -r ${hdfspath}/ds=${date}/*  # 递归删除
+hadoop fs -putSeq $filename ${hdfspath}/ds=${date}/
+```
+
+> 此次参考：`load_dim_tables.sh`脚本中的相关操作
 
 ### 查询
 
@@ -1345,15 +1428,15 @@ FAILED: SemanticException [Error 10019]: Line 21:22 OR not supported in JOIN cur
 
 ###### on不等值连接
 
-两个表join的时候，不支持两个表的字段的非相等操作.
+hive在两个表join的时候，on部分不支持两个表的字段的非相等操作,例如：like,>,<等运算
 
 例1：
 
 ```mysql
-right JOIN test.dim_month_date p2                                                                on p1.month=p2.y_month and p1.day<=p2.day
+right join test.dim_month_date p2                                                                on p1.month=p2.y_month and p1.day<=p2.day
 
-#可以改写成
-right JOIN test.dim_month_date_zyy p2
+# 可以改写成
+right join test.dim_month_date_zyy p2
    on p1.month=p2.y_month 
 where p1.day<=p2.day
 ```
@@ -1361,6 +1444,7 @@ where p1.day<=p2.day
 例2：
 
 ```mysql
+# 全连接实现
 SELECT *
 FROM table1
 RIGHT JOIN table2
@@ -1371,6 +1455,7 @@ WHERE LOCATE(table1.y,table2.x)>0;
 > - 该功能的mysql实现是：
 >
 > ```mysql
+> # mysql在join的时候支持非等值
 > SELECT *
 > FROM table1
 > RIGHT JOIN table2
@@ -1378,6 +1463,26 @@ WHERE LOCATE(table1.y,table2.x)>0;
 > ```
 >
 > - locate函数可以用来判断子串
+>
+> ```mysql
+> 
+> ```
+
+例3：
+
+```mysql
+# 全连接实现遍历
+use xmp_data_mid;
+select a.funnel_level,b.id 
+from 
+    funnel_test a
+left join
+    high_test b
+on(true)
+where a.funnel_level<=b.id;
+```
+
+> 在数据可控的情况下，巧妙使用笛卡尔积，可以实现遍历
 
 ##### 集合运算
 
@@ -1444,6 +1549,32 @@ grouping sets((),(x1),(x1,x2),(x1,x2,x3));
 > withe rollup是with cube的子集
 
 ### 函数
+
+查看函数
+
+```shell
+use func;
+show functions;
+
+# 查看month相关函数
+show functions like '*month*'
+
+# 查看函数用法
+def function funcname;
+
+# 查看函数详细用法
+def function extend funcname;
+```
+
+> ```
+> hive> desc function func.xl_group_concat_map;
+> converting to local hdfs://wh-ns/data/hive/udf/xl-udf-0.0.1-SNAPSHOT.jar
+> Added [/tmp/837dafcc-a7e2-4b3e-8a97-93e9088eb7f2_resources/xl-udf-0.0.1-SNAPSHOT.jar] to class path
+> Added resources: [hdfs://wh-ns/data/hive/udf/xl-udf-0.0.1-SNAPSHOT.jar]
+> OK
+> func.xl_group_concat_map(x,y) - Returns the map<x,y> for x is distinct,primitive and y is primitive
+> Time taken: 0.13 seconds, Fetched: 1 row(s)
+> ```
 
 #### 库函数
 
@@ -2289,11 +2420,33 @@ LEAD(col,n,DEFAULT) 用于统计窗口内往下第n行值,第一个参数为列�
 
 ###### [first_value/last_value](http://lxw1234.com/archives/2015/04/190.htm)
 
-first_value取分组内排序后，截止到当前行，第一个值,last_value取分组内排序后，截止到当前行，最后一个值
+这一组函数时lag/lead函数的特例，快速使用
+
+first_value取分组内排序后，截止到当前行，第一个值；
 
 ```mysql
-#待补充
+select cookieid,
+    createtime,
+    url,
+    row_number() over(partition by cookieid order by createtime) as rn,
+    first_value(url) over(partition by cookieid order by createtime) as first1 
+from lxw1234;
 ```
+
+> 可以追踪到每个用户首次访问的xxx
+
+last_value取分组内排序后，截止到当前行，最后一个值
+
+```mysql
+select cookieid,
+    createtime,
+    url,
+    row_number() over(partition by cookieid order by createtime) as rn,
+    last_value(url) over(partition by cookieid order by createtime) as last1 
+from lxw1234;
+```
+
+> 可以追踪到每个用户最后访问的
 
 ##### 数学函数-累积
 
@@ -2382,9 +2535,124 @@ group by id,f1;
 
 #### UDF
 
-udf和streaming的区别在于udf必须是在hadoop平台上的文件，而streaming要求的则是本地文件
+udf和streaming的区别在于streaming要求的则是本地文件,而udf的jar包可以放在本地也可以放在集群上
 
-##### 编解码
+jar包位置
+
+```shell
+#本地
+add jar udf-1.0-SNAPSHOT.jar;
+create temporary function checktag as 'com.hive.udf.CheckTag';
+
+#集群
+add jar hdfs://path/to/udf-1.0-SNAPSHOT.jar;
+create temporary function checktag as 'com.hive.udf.CheckTag';
+```
+
+##### 原理
+
+重写udf类的evaluate函数，或者udaf、udtf的相应函数
+
+###### 函数编写
+
+```java
+参考不同udf分类下的函数实现部分
+```
+
+###### 生成Jar包
+
+```java
+参考IntelIdea的使用方式
+```
+
+参考：[Jar包的生成和使用](https://blog.csdn.net/linhao19891124/article/details/53310913)
+
+###### 引入Jar包
+
+方式1：add jar
+
+```mysql
+通过该方式添加的jar只存在于当前会话中，当会话关闭后不能够继续使用该jar
+```
+
+方式2：hive-site.xml文件，修改参数hive.aux.jars.path的值 
+
+```shell
+修改hive-site.xml文件。修改参数hive.aux.jars.path的值指向UDF文件所在的路径。
+在hive-0.13中，该参数需要手动添加到hive-site.xml文件中，在HiveConf类中，该参数的值为空。
+```
+
+方式3：auxlib
+
+```shell
+${HIVE_HOME}下创建auxlib目录，将UDF文件放到该目录中，这样hive在启动时会将其中的jar文件加载到classpath中。
+```
+
+方式4：设置HIVE_AUX_JARS_PATH环境变量
+
+```shell
+设置HIVE_AUX_JARS_PATH环境变量，变量的值为放置jar文件的目录，可以拷贝${HIVE_HOME}/conf中的hive-env.sh.template为hive-env.sh文件，并修改最后一行的#export HIVE_AUX_JARS_PATH=为exportHIVE_AUX_JARS_PATH=jar文件目录来实现，或者在系统中直接添加HIVE_AUX_JARS_PATH环境变量。
+```
+
+```shell
+vim ${HIVE_HOME}/conf/hive_env.sh
+
+# Folder containing extra ibraries required for compilation/execution can be controlled by:
+# export HIVE_AUX_JARS_PATH=
+```
+
+> 备注方法2、方法3和方法4的原理类似
+
+参考：[引入Jar包的四种方式](http://blog.sina.com.cn/s/blog_67196ddc0102wji0.html)
+
+##### 分类
+
+- UDF（User-Defined-Function）一进一出 
+- UDAF(User-Defined Aggregation Function) 多进一出 聚集函数，类似于count、max
+- UDTF(User-Defined Table-Gennerating Functions) 一进多出 类似于lateral、view、explore
+
+###### udf
+
+函数编写(以func.date_diff为例)
+
+```java
+package com.xunlei.hive.udf;
+
+import org.apache.hadoop.hive.ql.exec.UDF; //引入hive-exec的jar包
+import org.apache.hadoop.io.Text; //引入hadoop-common的jar包
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.io.IOException;
+
+public final class DateDiff extends UDF {
+
+    public static final long ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+    public long evaluate(final String dateStr1, final String dateStr2, final String format) throws Exception {
+        DateFormat df = new SimpleDateFormat(format);
+        long ts1 = df.parse(dateStr1).getTime();
+        long ts2 = df.parse(dateStr2).getTime();
+        return ts1 / ONE_DAY_MS - ts2 / ONE_DAY_MS;
+    }
+}
+```
+
+###### udaf
+
+```java
+//待补充，需要更多java技能
+```
+
+###### udtf
+
+```java
+//待补充，需要更多java技能
+```
+
+##### 应用
+
+###### 编解码
 
 原生
 
@@ -2399,7 +2667,7 @@ md5
 平台提供
 
 ```mysql
-# 已经编译进hive源码，不需要再加载jar包
+# 已经编译进hive源码，不需要再手动加载jar包
 xl_urldecode() 
 
 # 需要先加载jar包，字符串中有空格等的风险，如url参数传递，通常编码后再传
@@ -2415,7 +2683,7 @@ create temporary function uriencode as 'com.xunlei.kk.feature.udf.UDFURIEncoder'
 # 使用python streaming处理,或者本地处理
 ```
 
-##### 类型转换
+###### 类型转换
 
 **str->map**
 
@@ -2453,14 +2721,14 @@ b=list(zip( a[::2], a[1::2] )) # [(1, 2), (3, 4), (5, 6)]
 dict(b) #{1: 2, 3: 4, 5: 6}
 ```
 
-##### 分析函数
+###### 分析函数
 
 ```mysql
 #计算数组中某个值出现的次数
 xl_array_count(array(b,b,a),string b); 
 ```
 
-##### 反射Java
+###### 反射Java
 
 hive中提供了reflect函数来调用Java现有库中的方法，调用方法如下：
 
@@ -2471,9 +2739,9 @@ select reflect("java.lang.Math","max",2.6,9.8); #9.8
 select regexp_replace(reflect("java.util.UUID","randomUUID"),'-','');  
 ```
 
-#### Streaming操作
+#### Streaming
 
-hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进程，外部进程从标准输入中读数据，然后将结果数据写入到标准输出。
+hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进程，外部进程从标准输入中读数据，然后将结果数据写入到标准输出，在处理数据的 时候并不要求一一对应
 
 注意：
 
@@ -2484,6 +2752,7 @@ hadoop streaming api为外部进程开始I/O管道，数据被传输给外部进
 - 少数据量的复杂计算
 - 快速出结果
 - 几乎支持所有语言（bash/perl/python/java）
+- 可以较方便的处理上下行关联
 
 缺点：
 
@@ -2552,6 +2821,24 @@ as guid string,activeweek_arr array<string>,appid string,usertype string;
 
 ```shell
 python实现
+```
+
+处理上下行关联
+
+```python
+
+```
+
+处理列表配对字典
+
+```python
+
+```
+
+处理循环
+
+```python
+
 ```
 
 ###### shell
@@ -2713,21 +3000,21 @@ select 1=1,NULL=1,NULL=NULL,NULL in (1,2),if(NULL in (1,2),'12','e'); #true NULL
 
 #### 字典数组
 
-##### 数组集合
+##### 数组
 
-函数一览
+此章节讲解hive中的数组和集合函数，函数一览如下：
 
-| **Return Type** | **Name(Signature)**                    | **Description**                          |
-| --------------- | -------------------------------------- | ---------------------------------------- |
-| int             | size(Map<K.V>)                         | Returns the number of elements in the map type. |
-| int             | size(Array<T>)                         | Returns the number of elements in the array type. |
+| **Return Type** | **Name(Signature)**                    | **Description**                                              |
+| --------------- | -------------------------------------- | ------------------------------------------------------------ |
+| int             | size(Map<K.V>)                         | Returns the number of elements in the map type.              |
+| int             | size(Array<T>)                         | Returns the number of elements in the array type.            |
 | array<K>        | map_keys(Map<K.V>)                     | Returns an unordered array containing the keys of the input map. |
 | array<V>        | map_values(Map<K.V>)                   | Returns an unordered array containing the values of the input map. |
-| boolean         | array_contains(Array<T>, value)        | Returns TRUE if the array contains value. |
+| boolean         | array_contains(Array<T>, value)        | Returns TRUE if the array contains value.                    |
 | array<t>        | sort_array(Array<T>)                   | Sorts the input array in ascending order according to the natural ordering of the array elements and returns it (as of version [0.9.0](https://issues.apache.org/jira/browse/HIVE-2279)). |
 | array           | collect_set(col)                       | Returns a set of objects with duplicate elements eliminated. |
 | array           | collect_list(col)                      | Returns a list of objects with duplicates. (As of Hive [0.13.0](https://issues.apache.org/jira/browse/HIVE-5294).) |
-| int             | find_in_set(string str,string strlist) | 返回str在strlist第一次出现的位置，strlist是用逗号分割的字符串。如果没有找该str字符，则返回0 |
+| int             | find_in_set(string str,string strlist) | 返回str在strlist第一次出现的位置，strlist是用逗号分割的字符串。如果没有找到该str字符，则返回0 |
 
 例子：
 
@@ -2738,7 +3025,27 @@ select find_in_set('cd','ef,ab,de'); -- 0
 select find_in_set('cd',concat_ws(',',array('ef','ab','de'))); --0
 ```
 
-###### 应用场景
+> 注意find_in_set的返回值起始位置值
+
+###### 基础应用
+
+数组索引
+
+```mysql
+# 查询数组中的指定位置的元素
+select b,b[0],b[1],b[len(b)-1] from xmp_data_mid.array_test;
+
+# 查询数组中指定值的元素，并返回其位置
+select find_in_set('20180815',concat_ws(',',array('20180812','20180815','20180820')))-1;
+
+select array('20180812','20180815','20180820')[find_in_set('20180815',concat_ws(',',array('20180812','20180815','20180820')))-2];
+```
+
+>查询数组元素中的指定值的前一一个位置的值，建议存储是以分割字符串的方式，处理过程转换成array,处理后再返回分割后的字符串，此时的处理方式变换成(还要注意特殊情况的处理)：
+>
+>```mysql
+>select split('20180812,20180815,20180820',',')[find_in_set('20180815','20180812,20180815,20180820')-2];
+>```
 
 数组元素拼接
 
@@ -2804,16 +3111,46 @@ group by id;
 
 ```mysql
 # 展开式
-select
-    id
-    ,ed
-    ,count(*)
+select id,ed,count(*)
 from xmp_data_mid.high_test
 lateral view explode(a1)ed as ed
 group by id,ed;
+
+# udf
+select b,xl_array_count(b,'b00') from array_test;
 ```
 
+###### 扩展应用
+
+数组嵌套
+
+```mysql
+select s1,collect_set(a),collect_set(a)[1],collect_set(a1)[1][1] 
+from xmp_data_mid.high_test group by s1;
+```
+
+数组合并
+
+```mysql
+# 需求：
+guid s1,s2,s3
+guid s4
+
+合并成
+guid s1,s2,s3,s4
+
+# 方法1：
+先列展行，再行聚合成列
+
+# 方法2：
+streaming
+```
+
+
+
 ##### 字典
+
+主要牵涉到map类型和json类型，此外还可以扩展到struct类型
 
 ###### map类型
 
@@ -3095,6 +3432,8 @@ select concat(parse_url('https://pay.xunlei.com/bjvip.html?referfrom=v_pc_xl9_pu
 
 ###### 请求UA
 
+User-Agent(UA)用户代理，是用户在上网访问的时候作为http包头的一部分向服务器发送，用于识别用户的当前环境，通过分析，可以知道用户使用的设备、系统、浏览器、应用等，进而可以和其它信息一起关联使用。
+
 [UA的格式](https://blog.csdn.net/laozhaokun/article/details/42024663)如下：
 
 ```shell
@@ -3104,10 +3443,19 @@ Mozilla/5.0 (Linux; Android 8.0; VKY-AL00 Build/HUAWEIVKY-AL00; wv) AppleWebKit/
 UA各部分的内容构成：
 
 ```
+Mozilla/5.0 ：以前用于Netscape浏览器，目前大多数浏览器UA都会带有。
+Windows NT 6.1：代表windows7系统。
+WOW64：Windows-on-Windows 64-bit，32位的应用程序运行于此64位处理器上。[1]
+AppleWebKit/537.36：浏览器内核[2]。
+KHTML：一个HTML排版引擎。
+like Gecko：这不是Geckeo 浏览器，但是运行起来像Geckeo浏览器。
+Chrome/36.0.1985.125：Chrome版本号。
+Safari/537.36：宣称自己是Safari
 
+# 还有更多的具体判别技巧等待分析 
 ```
 
-[UA解析](https://github.com/hotoo/detector)：
+[UA解析1:](https://github.com/hotoo/detector)detector
 
 ```mysql
 npm install detector -g
@@ -3118,6 +3466,14 @@ detector 'Mozilla/5.0 (Linux; Android 5.0.2; vivo X5Pro D Build/LRX21M; wv) Appl
        OS:  android@5.0.2
   Browser:  chrome@62.0.3202.84
    Engine:  webkit@537.36
+```
+
+> npm安装的nodejs包，提供命令行执行程序
+
+[UA解析2](https://github.com/lancedikson/bowser):bowser
+
+```shell
+# nodejs编写的开源工具包，需要具备nodejs基础的编程能力
 ```
 
 ##### ip处理
@@ -3733,6 +4089,8 @@ where d.rn1 is null and c.rn1_pre!=0;
 
 #### 设置优化
 
+hive的设置可通过${HIVE_HOME}/conf/目录下的hive_site.xml和hive_env.sh两个文件实现。
+
 ##### 参数优化
 
 | 设置                                                         | 意义               |
@@ -3890,6 +4248,8 @@ set hive.exec.max.dynamic.partitions.pernode=1000;
 
 ##### 合并小文件
 
+命令行设置
+
 ```shell
 # 合并小文件
 set hive.input.format=org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
@@ -3902,6 +4262,31 @@ set hive.exec.reducers.max=128;
 ```
 
 > 备注:一般将数据倾斜和合并小文件放在一起使用
+
+hive_site.xml设置
+
+```xml
+<configuration>
+	<property>
+         <name>hive.input.format</name>
+        <value>org.apache.hadoop.hive.ql.io.CombineHiveInputFormat</value>
+    </property>
+    <property>
+            <name>mapreduce.input.fileinputformat.split.maxsize</name>
+            <value>268435456</value>
+    </property>
+    <property>
+            <name>mapreduce.input.fileinputformat.split.minsize.per.node</name>
+            <value>268435456</value>
+    </property>
+    <property>
+             <name>mapreduce.input.fileinputformat.split.minsize.per.rack</name>
+            <value>268435456</value>
+    </property>
+</configuration>
+```
+
+
 
 #### 查询优化
 
@@ -4207,8 +4592,8 @@ a,1    ,b31,b32
 
 ```mysql
 # 基本
-load data local inpath '/ligu/data' into table test partition (country='china');
-load data local inpath '/ligu/data' overwrite into table test partition (country='china');
+load data local inpath '/ligu/data' into table test partition(country='china');
+load data local inpath '/ligu/data' overwrite into table test partition(country='china');
 
 # 升级
 ihql="use kankan_odl;delete from tbname where ds='${date}';
@@ -4442,8 +4827,6 @@ select mid, money, name from store cluster by mid sort by money
 set hive.groupby.skewindata=true;
 ```
 
-
-
 ## 参考
 
 - **基础**
@@ -4466,6 +4849,10 @@ set hive.groupby.skewindata=true;
 
   [Hive数据类型和函数参考大全（推荐）](https://blog.csdn.net/xiaolang85/article/details/8645647)
 
+  [HiveSQL解析过程(强烈推荐)](https://www.toutiao.com/i6600205177389580813/)
+
+  [hive参数设置的三种方式](https://www.cnblogs.com/huangmr0811/p/5571001.html)
+
 - **函数**
 
   [HIVE2.0函数大全(推荐)](https://www.cnblogs.com/MOBIN/p/5618747.html#1)
@@ -4485,6 +4872,8 @@ set hive.groupby.skewindata=true;
   [HIVE窗口分析函数ntile、row_number、rank、dense_rank](http://lxw1234.com/archives/2015/04/181.htm)
 
   [hive rank()函数详解](https://www.cnblogs.com/wglwgl/p/6178253.html)
+
+  [HiveUDF编程(推荐)](https://blog.csdn.net/wushuang3625/article/details/67252334)
 
 - **查询**
 
@@ -4506,7 +4895,7 @@ set hive.groupby.skewindata=true;
 
   [hive分组随机抽取](https://blog.csdn.net/zwj841558/article/details/71143493)
 
-- 优化
+- **优化**
 
   [hive优化-使用经验](http://www.aboutyun.com/thread-6047-1-1.html)
 
@@ -4516,8 +4905,8 @@ set hive.groupby.skewindata=true;
 
   [hive map join使用和个人理解](https://blog.csdn.net/liuj2511981/article/details/8616730)
 
-- 备份
+- **备份**
 
   [load data指令小结（推荐）](https://www.cnblogs.com/tugeler/p/5133019.html)
 
-- 问题​
+- **问题**

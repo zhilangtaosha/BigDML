@@ -189,3 +189,14 @@ from
 left join
     tbl_b b
 on a.dtask=b.dtask and a.id=b.id and a.dtask='tjoin';
+
+
+-- 用笛卡尔积实现遍历
+use xmp_data_mid;
+select a.funnel_level,b.id 
+from 
+    funnel_test a
+left join
+    high_test b
+on(true)
+where a.funnel_level<=b.id;

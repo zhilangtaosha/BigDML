@@ -441,6 +441,10 @@ dev.off()
 
   [在R语言中进行局部多项式回归拟合（LOESS）](http://www.dataguru.cn/article-1525-1.html)
 
+- 时间序列
+
+  [Github的时间序列预测工具prophet](https://github.com/facebook/prophet)
+
 - **知识积累**
 
   [R的案列学习（Github）推荐](https://github.com/ljtyduyu/DataWarehouse/tree/master/File)
