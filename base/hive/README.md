@@ -946,6 +946,19 @@ group by substr(fu6,1,1),if((lower(fu7) regexp "geforce"),'yes','no')
 order by tsize limit 10;
 ```
 
+例子3：
+
+```shell
+# case when的不封闭结果
+select 
+	sum(if(f2 is null and f1='forground',1,0))
+	,sum(case when f2 is null then 1 end)
+	,count(distinct id) 
+from xmp_data_mid.filters_load where type='jsz';
+```
+
+
+
 ##### coalesce
 
 COALESCE( value1,value2,... )
@@ -3198,10 +3211,11 @@ select nvl(b['key1'],'kong') from xmp_data_mid.map_test;
 
 ```mysql
 # 将字符串转化为map类型
-select str_to_map('1=2&3=4','&','='); 
-# --结果：{"1":"2","3":"4"}
+select str_to_map('1=2&3=4','&','='); # --结果：{"1":"2","3":"4"}
 select str_to_map('1=2&3=4','&','=')['1']; 
 
+# 分号处理(字符串中的分号要转义,后面替换了前面的)
+select str_to_map("tag=ni,rn=1,id=1\;tag=hao,rn=2,id=2",',','='); #{"tag":"ni","id":"2","rn":"2"}
 ```
 
 **合并和分解**
@@ -3355,13 +3369,13 @@ id=xxxx,sessionid=xxx,rn=3,,cur_episode=12,episodes=12,isover=1,year=2017,score=
 
 ```mysql
 select
-   guid
-   ,pos_video -- 此处已经是分拆之后的形式了
-   ,str_to_map(pos_video,',','=')['id'] as v_id -- 在分拆的形式上直接进行其它操作
-   ,extdata_map['channel'] as v_type
+    guid
+   ,xl_urldecode(pos_video) -- 此处已经是分拆之后的形式了
+   ,str_to_map(xl_urldecode(pos_video),',','=')['id'] as v_id -- 分拆形式上直接进行其它操作
+   ,extdata_map['channel'] as v_type  -- 其它并列信息
 from
     shoulei_bdl.bl_shoulei_event_fact
-lateral view explode(split(extdata_map['contentlist'],'\073'))eds as pos_video
+lateral view explode(split(xl_urldecode(extdata_map['contentlist']),'\073'))eds as pos_video
 where ds='20180717' and appid='45' and type in ('video','other')
     and attribute1 in ('onlinePlay_channel_show')
 ```

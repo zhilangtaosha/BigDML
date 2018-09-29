@@ -44,6 +44,9 @@ hdfs  dfs -du [-s] -h /user/root/warehouse/xmp_data_mid.db/xmpplaydur_test;
 #第二列标示该目录下所有文件在集群上的总存储大小和你的副本数相关，我的副本数是3 ，所以第二列的是第一列的三倍 （第二列内容=文件大小*副本数）
 #第三列标示你查询的目录
  [-s]参数用来求总计的大小，不详细列出子目录的大小
+ 
+# 若不添加协议说明，则默认读取的是hadoop集群上的文件
+hadoop fs -ls /user/kankan/yjm/udf
 ```
 
 > hive执行hdfs命令:
@@ -55,7 +58,14 @@ hdfs  dfs -du [-s] -h /user/root/warehouse/xmp_data_mid.db/xmpplaydur_test;
 文件内容
 
 ```shell
+#cat
+#使用方法：hadoop fs -cat URI [URI …],将路径指定文件的内容输出到stdout
 hadoop fs -cat /user/root/warehouse/xmp_data_mid.db/xmpplaydur_test/xxx.gz
+
+#text
+#使用方法：hadoop fs -text <src> 
+#将源文件输出为文本格式。允许的格式是zip和TextRecordInputStream。
+hadoop fs -text /user/root/warehouse/xmp_data_mid.db/xmpplaydur_test/xxx.gz
 ```
 
 文件操作
@@ -64,6 +74,7 @@ hadoop fs -cat /user/root/warehouse/xmp_data_mid.db/xmpplaydur_test/xxx.gz
 #　文件删除
 hadoop fs -rm /home/hadoop/output/lzw
 hadoop fs -rmr /home/hadoop/output
+hadoop fs -rm  hdfs:///user/kankan/yjm/udf/map.data2
 
 # 文件上传
 hadoop fs –put <localsrc> <dst>  # 从本地系统拷贝文件到DFS

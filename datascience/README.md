@@ -49,6 +49,8 @@
 
 ### 实现
 
+所有与语言底层相关的实现都集中放到这里进行处理
+
 #### python
 
 python数据处理三剑客：numpy/pandas/scipy
@@ -81,20 +83,111 @@ DataFrame作为R中的基础数据结构
 
 ### 专题
 
+#### 命令行数据处理
+
+安装相关工具箱(除linux本身提供的命令外)
+
+##### 准备工作
+
+###### csvkit 
+
+```shell
+pip install csvkit
+```
+
+提供的命令有
+
+```shell
+/usr/bin/csvclean
+/usr/bin/csvcut
+/usr/bin/csvformat
+/usr/bin/csvgrep
+/usr/bin/csvjoin
+/usr/bin/csvjson
+/usr/bin/csvlook
+/usr/bin/csvpy
+/usr/bin/csvsort
+/usr/bin/csvsql
+/usr/bin/csvstack
+/usr/bin/csvstat
+/usr/bin/in2csv
+/usr/bin/sql2csv
+```
+
+###### csvtotable
+
+```shell
+pip install csvtotable
+```
+
+提供的命令有：
+
+```shell
+/usr/bin/csvtotable
+```
+
+###### jq
+
+```shell
+
+```
+
+###### q
+
+```shell
+
+```
+
+##### Obtaining Data
+
+```shell
+sql2csv --db 'mysql://root:root@localhost/test' --query 'select * from orders'
+```
+
+##### Scrubbing Data
+
+```shell
+
+```
+
+##### Exploring Data
+
+```shell
+
+```
+
+##### Modeling Data
+
+```shell
+
+```
+
+##### Interpreting Data
+
+```shell
+
+```
+
 #### 海量数据处理
 
 //这个必须作为一个专题来讲，参考面试之法，编程之道部分
 
+##### 排序
+
+##### 查找
+
+1亿条记录数据(有重复)，查找出现最多的10条
+
  ##参考
 
-- 基础
+- **基础**
 
   [相关系数](http://m.blog.csdn.net/ciedecem/article/details/39582635)
 
   [数据科学完整学习路径-Python版（推荐）](https://www.tuicool.com/articles/QBZzquY)
 
-- 实现
+- **专题**
 
-- 专题
+  [DataScienceAttheCommandLine](https://github.com/jeroenjanssens/data-science-at-the-command-line)
 
 

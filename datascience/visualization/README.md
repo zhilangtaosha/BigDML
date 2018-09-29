@@ -215,6 +215,8 @@
 
   //补充绘制图表的基本原理
 
+  [数据可视化的十大误区(推荐)](https://www.toutiao.com/a6606090350673003021/?iid=6606090350673003021)
+
 - 演示
 
   [matplotlib gallary](https://matplotlib.org/gallery.html)
