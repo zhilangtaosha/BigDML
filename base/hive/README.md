@@ -3009,6 +3009,9 @@ group by ds
 ```mysql
 # NULL和任何值运算都是NULL，NULL是假
 select 1=1,NULL=1,NULL=NULL,NULL in (1,2),if(NULL in (1,2),'12','e'); #true NULL NULL NULL e
+
+# 如果where中包含null
+select 1 from  test.dual  where 1 <> 2 and 1<>NULL;  # 没有结果
 ```
 
 #### 字典数组
