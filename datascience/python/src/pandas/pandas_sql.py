@@ -1,9 +1,13 @@
 #!/usr/bin/env python
-# -*- coding: utf8 -*-
-__author__ = 'yjm'
+# -*- coding: utf-8 -*-
 '''
-  功能注释：pandas和sql互操作
+    Fun:pandas数据库交互
+    Ref:
+    State：
+    Date:2018/10/8
+    Author:tuling56
 '''
+
 
 import pandas as pd
 import numpy as np
@@ -11,9 +15,6 @@ import matplotlib.pyplot as plt
 from datetime import datetime,timedelta,date
 
 
-'''
-    pandas和sql互操作
-'''
 import MySQLdb
 from sqlalchemy import create_engine
 

@@ -136,6 +136,16 @@
 
 ###### matplotlib
 
+```python
+
+```
+
+###### pyecharts
+
+```python
+
+```
+
 ###### seaborn
 
 ###### plotly
@@ -147,6 +157,10 @@
 主要包含：ggplot2、Lattice
 
 ###### ggplot2
+
+```R
+
+```
 
 ##### js
 
@@ -199,7 +213,7 @@
 
  ##参考
 
-- 基础
+- **基础**
 
   [用图表说话-麦肯锡商务沟通.pdf](//带添加)
 
@@ -211,13 +225,13 @@
 
   [Python数据可视化编程实战（书籍）](http://item.jd.com/11676691.html)
 
-- 进阶
+- **进阶**
 
   //补充绘制图表的基本原理
 
   [数据可视化的十大误区(推荐)](https://www.toutiao.com/a6606090350673003021/?iid=6606090350673003021)
 
-- 演示
+- **演示**
 
   [matplotlib gallary](https://matplotlib.org/gallery.html)
 

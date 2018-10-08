@@ -70,7 +70,7 @@ class CPandas(object):
         df1.grade=df1.grade.cat.set_categories
 
 
-    #数据帧
+    # 数据帧构建
     def pandas_build(self):
         # Dataframe构建方式1：key是列，行元素分别是每个value，一一对应
         data = {'state': ['Ohio', 'Ohio', 'Ohio', 'Nevada', 'Nevada'],

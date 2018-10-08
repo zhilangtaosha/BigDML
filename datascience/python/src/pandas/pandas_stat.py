@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf8 -*-
-__author__ = 'yjm'
+# -*- coding: utf-8 -*-
 '''
-    功能注释：pandas数据帧统计处理
+    Fun:pandas数据帧统计处理
     Ref:http://mp.weixin.qq.com/s/y6Sy2OV6b-25thHPRC30Tg
+    State：
+    Date:2018/10/8
+    Author:tuling56
 '''
 
 import pandas as pd
