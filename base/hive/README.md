@@ -3012,6 +3012,9 @@ select 1=1,NULL=1,NULL=NULL,NULL in (1,2),if(NULL in (1,2),'12','e'); #true NULL
 
 # 如果where中包含null
 select 1 from  test.dual  where 1 <> 2 and 1<>NULL;  # 没有结果
+
+# 列中含NULL和(自动剔除NULL)
+select sum(m2['k1']) from xmp_data_mid.high_test;
 ```
 
 #### 字典数组

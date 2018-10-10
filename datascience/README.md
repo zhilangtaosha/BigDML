@@ -120,6 +120,8 @@ df[!duplicated(df),]
 
 ##### dplyr
 
+dplyr包主要包括3个操作：单表操作、两表操作、数据库操作，主要函数如下：
+
 1. 数据筛选-filter函数
 2. 子集选取函数-select函数
 3. 数据的排序-arrage函数
@@ -130,7 +132,91 @@ df[!duplicated(df),]
 8. 管道函数
 9. 连接MySQL数据库
 
-##### 积累
+###### select
+
+```R
+
+```
+
+###### filter
+
+```R
+
+```
+
+###### sort
+
+```R
+
+```
+
+###### mutate
+
+mutate()函数用来添加列，与cbind()和transform()函数类似，但优于transform();
+
+mutate()函数创建一列时候还可以将其作为变量再来创建后面的列，而transmutate()则是仅包括刚刚创建的变量。
+
+```R
+# 保留原有的和新建的
+mutate(flights,gain = arr_delay - dep_delay,gain_per_hour = gain / (air_time / 60))
+
+# 只保留新建的
+transmute(flights,gain = arr_delay - dep_delay,gain_per_hour = gain / (air_time / 60))
+```
+
+###### join
+
+数据记之间的交叉并补运算
+
+```R
+
+```
+
+###### group
+
+主要是summary和group_by函数
+
+```R
+# 统计
+summarise(flights,delay = mean(dep_delay, na.rm = TRUE))
+
+# 分组
+length(levels(factor(flights$tailnum)))
+df1<-group_by(flights, tailnum);
+df2<-summarise(df1,count=n(),dist=mean(distance,na.rm=TRUE),delay=mean(arr_delay,na.rm=TRUE));
+```
+
+###### 抽样
+
+```R
+sample_n(flights, 10);
+sample_frac(flights,0.1)
+```
+
+###### 管道
+
+```R
+library(hflights)
+library(dplyr)
+
+df<-flights %>%
+  group_by(tailnum) %>%
+  summarise(count=n(),
+            dist=mean(distance, na.rm=TRUE),
+            delay=mean(arr_delay,na.rm=TRUE)) %>%
+  filter(count>=20 & dist<2000)
+
+df
+
+作者：To_2019_1_4
+链接：https://www.jianshu.com/p/7de1429a2f47
+來源：简书
+简书著作权归作者所有，任何形式的转载都请联系作者获得授权并注明出处。
+```
+
+参考：[dplyr高效数据整理工具](https://www.jianshu.com/p/7de1429a2f47)
+
+##### 其它
 
 ###### table函数
 
@@ -181,11 +267,11 @@ dev.off()
 ```
 #### Python
 
-- numpy
-- pandas
-- scipy
+python数据处理三剑客numpy/pandas/scipy
 
 ##### numpy
+
+参考numpy基础教程，numpy的矩阵运算比较强大，常配合其它包使用，是基础包
 
 ```python
 
@@ -196,28 +282,248 @@ dev.off()
 两种基础的数据结构Series和DataFrame，Series是一维不同质可变长数组，DataFrame是数据真，tibble是新型的数据结构
 
 ```python
+dates = pd.date_range('20130101', periods=6)
+df = pd.DataFrame(np.random.randn(6,4), index=dates, columns=list('ABCD'))
+'''
+                   A         B         C         D
+2013-01-01  0.469112 -0.282863 -1.509059 -1.135632
+2013-01-02  1.212112 -0.173215  0.119209 -1.044236
+2013-01-03 -0.861849 -2.104569 -0.494929  1.071804
+2013-01-04  0.721555 -0.706771 -1.039575  0.271860
+2013-01-05 -0.424972  0.567020  0.276232 -1.087401
+2013-01-06 -0.673690  0.113648 -1.478427  0.524988
+'''
+
+# reindex
+df1 = df.reindex(index=dates[0:4], columns=list(df.columns) + ['E'])
+df1.index=df1.index.map(str.upper)    
+```
+
+> 其它例子：
+>
+> ```python
+> df=pd.DataFrame({'a':[1,2,3],'b':[4,5,6],'c':[7,8,9]},columns=['a','b','c'],index=['11','22','33'])
+> ```
+>
+> 
+
+###### Creation
+
+python结构
+
+```python
+# 1.字典方式
+data1={ 'state': ['Ohio', 'Ohio', 'Ohio', 'Nevada', 'Nevada'],
+        'year': [2000, 2001, 2002, 2001, 2002],
+        'pop': [1.5, 1.7, 3.6, 2.4, 2.9]
+       }
+df1 =pd.DataFrame(data,columns=['pop','year','state','noc'],index=list('ABCDE'))
+'''
+   pop  year   state  noc
+A  1.5  2000    Ohio  NaN
+B  1.7  2001    Ohio  NaN
+C  3.6  2002    Ohio  NaN
+D  2.4  2001  Nevada  NaN
+E  2.9  2002  Nevada  NaN
+'''
+
+# 2.嵌套列表(列表中的每个元素对应一列)
+data2=[['Ohio', 'Ohio', 'Ohio', 'Nevada', 'Nevada'],[2000, 2001, 2002, 2001, 2002], [1.5, 1.7, 3.6, 2.4, 2.9]]
+df2=pd.DataFrame(data2,columns=['state','year','pop','add1','add2'])
+'''
+  state  year   pop    add1    add2
+0  Ohio  Ohio  Ohio  Nevada  Nevada
+1  2000  2001  2002    2001    2002
+2   1.5   1.7   3.6     2.4     2.9
+'''
+
+
+# 3.嵌套字典
+data3 = {'Nevada': {2001: 2.4, 2005: 2.9}, 'Ohio': {2000: 1.5, 2001: 1.7, 2002: 3.6}}
+df3=pd.DataFrame(data3)
+'''
+      Nevada  Ohio
+2000     NaN   1.5
+2001     2.4   1.7
+2002     NaN   3.6
+2005     2.9   NaN
+'''
+```
+
+numpy结构
+
+```python
+# 数据变形
+data4=np.arange(6).reshape(2,3)
+df4=pd.DataFrame(data4,columns=['col1','col2','col3'],index=['row1','row2'])
+```
+
+###### View
+
+查看整体数据概况
+
+```python
+# 属性
+df.index
+df.columns
+df.values
+
+# 函数
+df.head()/df.tail(3)
+df.describe()
+
+# 缺失值
+pd.isna(df)
+df.fillna(value=5)
+df.dropna(how='any'
 
 ```
 
-##### scipy
+###### Sort
+
+```python
+# 轴排序
+df.sort_index(axis=1, ascending=False)
+
+# 值排序
+df.sort_values(by='B')
+```
+
+###### Selection
+
+row
+
+```python
+df[0:3]
+df['20130102':'20130104']
+df.iloc[3]
+
+# 筛选满足条件的行
+df[df.A > 0]
+```
+
+col
+
+```python
+df['A'] 
+df.A
+
+# 赋值
+df2['E'] = ['one', 'one','two','three','four','three']
+```
+
+row&col
+
+```python
+df.loc[:,['A','B']]
+df.loc['20130102':'20130104',['A','B']]
+df.loc['20130102',['A','B']]
+df.loc[dates[0],'A']
+
+df.iloc[3:5,0:2]
+df.iloc[[1,2,4],[0,2]]
+df.iloc[1:3,:]
+df.iloc[:,1:3]
+df.iloc[1,1]
+
+# 条件
+df[df > 0]
+df2[df2['E'].isin(['two','four'])]
+```
+
+###### Operations
+
+stats
+
+```python
+# 四则运算
+df.sub(s, axis='index')
+```
+
+apply
 
 ```python
 
 ```
 
-##### 积累
+histograming
+
+```python
+
+```
+
+join
+
+```python
+
+```
+
+append
+
+```python
+
+```
+
+grouping
+
+```python
+
+```
+
+reshape
+
+```python
+
+```
+
+pivot
+
+```python
+
+```
+
+###### Plot
+
+```python
+df = pd.DataFrame(np.random.randn(1000, 4), index=ts.index,columns=['A', 'B', 'C', 'D'])
+df = df.cumsum()
+plt.figure(); df.plot(); plt.legend(loc='best')
+```
+
+###### IO
+
+```python
+# 从数据导入
+# 导出成文件
+```
+
+##### scipy
+
+该包主要牵涉到假设检验等统计学知识点
+
+```python
+
+```
+
+##### 其它
 
 #### Julia
 
-julia是新推出的富有活力的统计语言
+julia是新推出的富有活力的统计语言，融合C、Python、R等助于语言特色，是数据科学领域的又一把顶级利器。
+
+```julia
+
+```
 
 ##### 积累
 
-### 数据接入
-
-//读取各种文件、数据库、网络数据的方式参见r基础部分
+//待补充
 
 ### 数据清理
+
+#### 数据接入
+
+//读取各种文件、数据库、网络数据的方式参见r基础部分
 
 #### 特殊处理
 
@@ -381,30 +687,131 @@ Aggregation function missing: defaulting to length
 3. `unit`        — 多列合并为一列
 4. `separate ` — 将一列分离为多列
 
-**spread**
+###### **spread**
 
 ```R
 spread(data, key, value, fill = NA, convert = FALSE, drop = TRUE)
 #其中key列就是分类列，value列是该分类列的值，要求key值不重复
 ```
 
-- **gather**
+###### **gather**
 
 ```R
 
 ```
 
-- **unit**
+###### **unit**
 
 ```R
 
 ```
 
-- **separate**
+###### **separate**
 
 ```
 
 ```
+##### dplyr
+
+见工具部分的描述
+
+##### pandas
+
+原始数据
+
+```python
+dates = pd.date_range('20130101', periods=6)
+df = pd.DataFrame(np.random.randn(6,4), index=dates, columns=list('ABCD'))
+'''
+                   A         B         C         D
+2013-01-01  0.670013 -0.221569  1.971167 -0.673699
+2013-01-02 -0.474492 -1.020013 -0.744874  1.491498
+2013-01-03  1.694402 -0.801795  0.743104 -1.831678
+2013-01-04 -0.991665 -0.535272  1.038399  0.280514
+2013-01-05 -0.455799 -0.558579  1.529402 -0.897370
+2013-01-06  1.418096 -1.215279  1.153839 -1.196297
+'''
+```
+
+宽变长
+
+```python
+c=df.stack()
+'''
+2013-01-01  A    0.670013
+            B   -0.221569
+            C    1.971167
+            D   -0.673699
+2013-01-02  A   -0.474492
+            B   -1.020013
+            C   -0.744874
+            D    1.491498
+'''
+
+# 如果存在多个索引，则可以使用level number或者name来unstack
+```
+
+> 宽变长也可以使用pd.melt()函数来实现
+>
+> ```python
+> pd.melt(df,id_vars=['A'],value_vars=['B','C'])
+> '''
+>            A variable     value
+> 0   0.189141        B -0.580822
+> 1  -0.755850        B  1.826144
+> 2  -0.535084        B -0.495651
+> 3  -0.523995        B -0.712648
+> 4  -0.171448        B -1.380292
+> 5   0.675715        B -2.038740
+> 6   0.189141        C  0.683856
+> 7  -0.755850        C -0.435568
+> 8  -0.535084        C  0.063186
+> 9  -0.523995        C -0.530271
+> 10 -0.171448        C  0.730614
+> 11  0.675715        C -0.573751
+> '''
+> ```
+>
+> 
+
+长变宽
+
+```python
+c.unstack()
+'''
+                   A         B         C         D
+2013-01-01  0.670013 -0.221569  1.971167 -0.673699
+2013-01-02 -0.474492 -1.020013 -0.744874  1.491498
+2013-01-03  1.694402 -0.801795  0.743104 -1.831678
+2013-01-04 -0.991665 -0.535272  1.038399  0.280514
+2013-01-05 -0.455799 -0.558579  1.529402 -0.897370
+2013-01-06  1.418096 -1.215279  1.153839 -1.196297
+'''
+# 如果存在多个索引，则可以使用level number或者name来unstack
+c.unstack(0)
+'''
+   2013-01-01  2013-01-02  2013-01-03  2013-01-04  2013-01-05  2013-01-06
+A    0.670013   -0.474492    1.694402   -0.991665   -0.455799    1.418096
+B   -0.221569   -1.020013   -0.801795   -0.535272   -0.558579   -1.215279
+C    1.971167   -0.744874    0.743104    1.038399    1.529402    1.153839
+D   -0.673699    1.491498   -1.831678    0.280514   -0.897370   -1.196297
+'''
+
+c.unstack(1)
+'''
+                   A         B         C         D
+2013-01-01  0.670013 -0.221569  1.971167 -0.673699
+2013-01-02 -0.474492 -1.020013 -0.744874  1.491498
+2013-01-03  1.694402 -0.801795  0.743104 -1.831678
+2013-01-04 -0.991665 -0.535272  1.038399  0.280514
+2013-01-05 -0.455799 -0.558579  1.529402 -0.897370
+2013-01-06  1.418096 -1.215279  1.153839 -1.196297
+'''
+
+```
+
+
+
 ### 数据分析
 
 #### 回归分析
@@ -499,7 +906,7 @@ qplot(carat,price,data=dsmall,geom=c("point","smooth"),method="lm",formula=y~x) 
 
 //待补充
 
-### 专题
+### 专题处理
 
 #### 命令行数据处理
 
@@ -532,6 +939,13 @@ pip install csvkit
 /usr/bin/sql2csv
 ```
 
+> 在使用命令的时候提示[warning的解决办法](https://blog.csdn.net/liangzuojiayi/article/details/78213451)：
+>
+> ```python
+> import warnings
+> warnings.filterwarnings("ignore")
+> ```
+
 ###### csvtotable
 
 ```shell
@@ -546,41 +960,48 @@ pip install csvtotable
 
 ###### jq
 
+json格式数据处理工具
+
 ```shell
 
 ```
 
 ###### q
 
+类似sql的分割符文本处理
+
 ```shell
 
 ```
 
-##### Obtaining Data
+##### 数据处理
+
+###### Obtaining Data
 
 ```shell
+# 从mysql中导出数据成csv格式
 sql2csv --db 'mysql://root:root@localhost/test' --query 'select * from orders'
 ```
 
-##### Scrubbing Data
+###### Scrubbing Data
 
 ```shell
 
 ```
 
-##### Exploring Data
+###### Exploring Data
 
 ```shell
 
 ```
 
-##### Modeling Data
+###### Modeling Data
 
 ```shell
 
 ```
 
-##### Interpreting Data
+###### Interpreting Data
 
 ```shell
 
@@ -591,6 +1012,8 @@ sql2csv --db 'mysql://root:root@localhost/test' --query 'select * from orders'
 //这个必须作为一个专题来讲，参考面试之法，编程之道部分
 
 ##### 排序
+
+//待补充
 
 ##### 查找
 
@@ -606,33 +1029,53 @@ sql2csv --db 'mysql://root:root@localhost/test' --query 'select * from orders'
 
 - **工具**
 
-  [Pandas操作手册（推荐）](https://www.jianshu.com/p/5142aab20550)
+  - Python
 
-  [十分钟Pandas入门(推荐)](http://pandas.pydata.org/pandas-docs/stable/10min.html)
+    [Pandas操作手册（推荐）](https://www.jianshu.com/p/5142aab20550)
 
-  [Pandas最神奇的功能](https://mp.weixin.qq.com/s/y6Sy2OV6b-25thHPRC30Tg)
+    [十分钟Pandas入门(推荐)](http://pandas.pydata.org/pandas-docs/stable/10min.html)
 
-  [Pandas数据规整](https://blog.csdn.net/liujianfei526/article/details/50464614)
+    [Pandas最神奇的功能](https://mp.weixin.qq.com/s/y6Sy2OV6b-25thHPRC30Tg)
 
-  [R的案列学习（Github）推荐](https://github.com/ljtyduyu/DataWarehouse/tree/master/File)
+    [Pandas数据规整](https://blog.csdn.net/liujianfei526/article/details/50464614)
 
-- 数据清洗
+    [Numpy入门教程](https://www.jb51.net/article/49397.htm)
 
-  [reshape2长宽格式转换](http://www.jianshu.com/p/31d4512ed97f)
+  - R
 
-  [R语言高效数据清理工具包dplyr](http://www.xueqing.tv/course/31)
+    [R的案列学习（Github）推荐](https://github.com/ljtyduyu/DataWarehouse/tree/master/File)
 
-  [tidyr包-reshape2包的进化版](http://www.xueqing.tv/cms/article/105)
+  - Julia
 
-  [table函数的数据输出转化](https://www.zhihu.com/question/46661384)
+    [Julia语言初体验](https://mp.weixin.qq.com/s/y_FvuoGLRYNC9B5N0zWEpw)
 
-- 数据分析
+- **清洗转换**
 
-  [Github的时间序列预测工具prophet](https://github.com/facebook/prophet)
+  - Python
 
-  [在R语言中进行局部多项式回归拟合（LOESS）](http://www.dataguru.cn/article-1525-1.html)
+  - R
 
-- **专题**
+    [reshape2长宽格式转换](http://www.jianshu.com/p/31d4512ed97f)
+
+    [R语言高效数据清理工具包dplyr](http://www.xueqing.tv/course/31)
+
+    [tidyr包-reshape2包的进化版](http://www.xueqing.tv/cms/article/105)
+
+    [高效数据整理工具包dplyr](https://www.jianshu.com/p/7de1429a2f47)
+
+    [table函数的数据输出转化](https://www.zhihu.com/question/46661384)
+
+- **数据分析**
+
+  - Python
+
+  - R
+
+    [Github的时间序列预测工具prophet](https://github.com/facebook/prophet)
+
+    [在R语言中进行局部多项式回归拟合（LOESS）](http://www.dataguru.cn/article-1525-1.html)
+
+- **专题处理**
 
   [DataScienceAttheCommandLine](https://github.com/jeroenjanssens/data-science-at-the-command-line)
 
