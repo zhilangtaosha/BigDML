@@ -13,6 +13,8 @@ library(nycflights13)
 fun.mselect <- function()
 {
 
-    fuk\
+    filter(data,formula)
+    filter(flights, month == 1, day == 1)
+
 
 }

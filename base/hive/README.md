@@ -4895,6 +4895,8 @@ set hive.groupby.skewindata=true;
 
   [HiveUDF编程(推荐)](https://blog.csdn.net/wushuang3625/article/details/67252334)
 
+  [hiveudf-brickhouse第三方udf参考](https://github.com/klout/brickhouse)
+
 - **查询**
 
   [连接参考](http://www.cnblogs.com/pcjim/articles/799302.html)
@@ -4902,6 +4904,8 @@ set hive.groupby.skewindata=true;
   [hive join操作列表](http://lxw1234.com/archives/2015/06/315.htm)
 
   [hive exists和in解决方案](https://blog.csdn.net/wisdom_c_1010/article/details/78774129)
+
+  [hive各种join操作](https://blog.csdn.net/smile0198/article/details/38665321)
 
 - **积累**
 
