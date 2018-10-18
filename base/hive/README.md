@@ -625,6 +625,24 @@ show create table table_name;
 hadoop fs -ls xxx |awk -F ' ' '{print $5}'|awk '{a+=$1}END{print a/(1024*1024*1024)}'  # 单位G
 ```
 
+###### 删除表
+
+对外部表（存储在本地文件系统）和内部表（存储在MetaStore），删除语句相同
+
+```shell
+drop table if exists $tbl;
+```
+
+> 删除的时候会连分区和文件(内部表)一起删除
+
+删除表的部分分区
+
+```shell
+alter table dog drop partition(sex='boy');
+```
+
+> 删除分区的时候必须逐层指定，删除顶层分区的话，其子分区也会一并删除,也即意味着分区是有先后关系的，此外在插入分区的时候必须要指定所有分区，然后才能插入
+
 ##### 视图
 
 ###### 创建视图
@@ -738,12 +756,21 @@ from vvvv;
 > select other,appid
 > 	,'静态serverii_xx'
 > from vvvv;
+> 
+> # 会报错
+> Dynamic partition cannot be the parent of a static partition ''xsdnerrcode'';
 > ```
 >
-> 会报错：
+> 此外在动态分区的时候，至少需要一个静态分区：
 >
-> ```shell
-> Dynamic partition cannot be the parent of a static partition ''xsdnerrcode'';
+> ```mysql
+> insert overwrite table bl_longvideo_guid_day partition(ds,platform)
+> select guid,ds,'sl_embed'
+> from
+>     xmp_data_mid.bl_shoulei_longvideo_day
+> where ds<='20181016' and appid='45';
+> # 会报错
+> Dynamic partition strict mode requires at least one static partition column. To turn this off set hive.exec.dynamic.partition.mode=nonstrict
 > ```
 >
 
@@ -831,24 +858,6 @@ alter table xmp_subproduct_install set SERDEPROPERTIES('serialization.format' = 
 ```
 
 > 只修改表的字段分隔符不会影响已有分区，只会影响新建的分区，如果有需要，已有分区也必须执行修改。 
-
-###### 删除表
-
-对外部表（存储在本地文件系统）和内部表（存储在MetaStore），删除语句相同
-
-```shell
-drop table if exists $tbl;
-```
-
-> 删除的时候会连分区和文件(内部表)一起删除
-
-删除表的部分分区
-
-```shell
-alter table dog drop partition(sex='boy');
-```
-
-> 删除分区的时候必须逐层指定，删除顶层分区的话，其子分区也会一并删除,也即意味着分区是有先后关系的，此外在插入分区的时候必须要指定所有分区，然后才能插入
 
 #### 文件操作
 
@@ -4872,6 +4881,8 @@ set hive.groupby.skewindata=true;
   [HiveSQL解析过程(强烈推荐)](https://www.toutiao.com/i6600205177389580813/)
 
   [hive参数设置的三种方式](https://www.cnblogs.com/huangmr0811/p/5571001.html)
+
+  [Hive配置参数详解(强烈推荐)](https://blog.csdn.net/qq_33624952/article/details/83021956)
 
 - **函数**
 
